@@ -1,0 +1,52 @@
+* feature dimension: 128 (default)
+* layers: 3
+* single-precision floating point
+* at least 10 executions: median and 95% confidence interval
+* Kronecker graphs
+  * density (#edges/#vertices^2): 1%, 0.1%, 0.01%
+* weak scaling:
+  * prior random uniform model, now Kronecker model
+  * one compute node: roughly 131k vertices (scale = 17, 131072), roughly 171 million edges
+  * 512 compute nodes: roughly 3m vertices (scale between 21 and 22), roughly 90 billion edges
+  * runtimes usually below one second, apart from 1% density
+* strong scaling:
+  * Kronecker model
+  * roughly 1 million vertices, 0.01% density
+  * roughly 2 million vertices, 0.01% density
+  * roughly 131k vertices, 1% density
+  * roughly 262k vertices, 1% density
+  * from 1 compute node to 128 computes nodes
+  * runtimes are a few seconds and then getting lower
+* only distributed GPU variant
+* real world graph datasets:
+  * /project/g34/graphs/data/ogb-paper100M/ogbn_papers100M/raw/data_extracted/edge_index.npy
+
+
+OGB (from Alexandros):
+from numpy import typing as npt
+from ogb.nodeproppred import NodePropPredDataset
+
+
+def download_edge_index(name: str, folder: str = None) -> npt.NDArray[np.integer]:
+    """ Downloads the edge index of a dataset from OGB.
+
+    :param name: The name of the dataset.
+    :param folder: The folder to download the dataset to.
+    :return: The edge index of the dataset.
+    """
+
+    folder = folder or 'dataset'  # default OGB folder
+    dataset = NodePropPredDataset(name=name, root=folder)
+
+    split_idx = dataset.get_idx_split()
+    train_idx, valid_idx, test_idx = split_idx["train"], split_idx["valid"], split_idx["test"]
+    graph, label = dataset[0]  # graph: library-agnostic graph object
+    return graph["edge_index"]
+
+folder is where ogb should download the dataset. If it is not in your computer, then pick a scratch folder
+You can expect datasets to be 1GB+
+the names are ["ogbn-arxiv", "ogbn-proteins", "ogbn-products", "ogbn-papers100M"]
+You have the last one, which is too big
+The other should be manageable
+You need to install the ogb python module
+And probably some torch stuff, but you may have them already

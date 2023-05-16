@@ -1,0 +1,37 @@
+#!/bin/bash --login
+#SBATCH --output=ddace_test.out
+#SBATCH --error=ddace_test.err
+#SBATCH --account=g34
+#SBATCH --nodes=128
+#SBATCH --constraint=gpu
+#SBATCH --time=00:30:00
+#SBATCH --job-name=paolo_test
+
+
+module load daint-gpu
+module load gcc/9.3.0
+module load intel-oneapi/2022.1.0
+module load cray-python/3.9.12.1
+module swap PrgEnv-cray/6.0.10 PrgEnv-gnu
+
+# Setup the compiler
+#
+export CC=`which cc`
+export CXX=`which CC`
+
+# Enable dynamic linking
+#
+export CRAYPE_LINK_TYPE=dynamic
+
+#some important stuff
+export MPICH_RDMA_ENABLED_CUDA=1
+export MPICH_MAX_THREAD_SAFETY=multiple
+export MPICH_NEMESIS_ASYNC_PROGRESS=MC
+export MPICH_RDMA_ENABLED_CUDA=1
+
+# Enable threading
+#
+export OMP_NUM_THREADS=12
+export MKL_NUM_THREADS=12
+
+DACE_compiler_use_cache=1 LD_PRELOAD=/usr/lib64/libcuda.so.1:/usr/local/cuda/targets/x86_64-linux/lib/libcudart.so.11.0 srun --time=5 -N 128 python ../dace_models/vanilla_attention_gpu.py

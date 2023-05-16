@@ -1,0 +1,778 @@
+08.03.2023 (based on Robert's notes):
+attending: Alexandros Nikolaos Ziogas, Florian Scheidl, Maciej Besta and Robert Gerstenberger
+* Robert is new to Python and the things used for this project
+* Alexandros coded most of the stuff, but has currently no time to pursue this further
+* there is another project by Lukas:
+  * maybe have a common codebase
+  * optimize specific operations that we might need
+* Dace optimizer:
+  * avoids some intermediate results, which saves execution time
+  * might not help for this project
+* existing work on various GNN optimal for dense matrices
+* Greg worked on some models, but doesn't have a good theory, so went for something practicial
+* GNN: sparse matrix - pattern different each time because of the graph
+* Dace not easily costumizable
+  * maybe won't use Dace
+  * Python modules are easier to debug
+  * get something to run and discuss afterwards how to proceed
+* graphs don't fit into GPU memory unless we use a lot of compute nodes
+* Alexandros wants to transfer his knowledge, since he started a new job
+  * will work in the future on Dace
+  * works on another project with Dace and Fortran
+* single node version:
+  * inference for a single layer
+  * generate_block_interference
+  * A same for all layers
+  * W changes for each layer
+    * dense, but very small
+  * H has a lot less columns, but is dense
+  * cupy needs installed NVIDIA CUDA toolkit
+    * numpy
+    * cublas
+* MPI version:
+  * Alexandros started to work on this
+  * decomposed problem for distribution:
+    * don't have enough memory
+    * execute in batches
+    * tiling: formular how much memory is need
+    * precut A into a canonical format, because the GPU will convert it in this format anyway
+      (which is rather expensive)
+  * cartesian communicator assuming a perfect square
+    * local NI and NK are also squares, but only if the original dimensions and the processor
+      grid are squares
+      * otherwise it is not possible to have a single tile size
+      * support for other configurations would require additional coding
+  * A partially replicated
+  * W fully replicated on all ranks
+  * the result after the layer execution, which would be the matrix H for the next layer, is not
+    correctly distributed
+    * redistribution is not implemented
+    * could also have a second layer with a "different" algorithms that is aware of the different
+      distribution
+    * will start with a single layer for now
+  * Alex should write some tips on how the Python code effciently
+  * cupy + NVIDIA CUDA installation takes around 30 minutes
+  * command line parameters are not done yet
+  * different device IDs necessary because some compute nodes have more than one GPU
+  * Piz Daint: one process per compute node
+* inference for AGNN:
+  * training
+  * attention models matter because GCN isn't important because it is not novel
+  * Hadamard division also necessary for other algorithm
+    * also needs masking, which is hard to implement in Python
+      * for loop necessary, which can't be run concurrently
+      * something for this might exist in Dace
+      * compute on the fly, because too big to store H x A^T
+      * maybe use library/module
+      * should start by implementing a simple version and improve from there
+* attention models don't work for real world graphs
+  * Alexandros doesn't have time for fix code in Dace
+* How to run Hadamard division fast?
+  * check other systems for possible implementations
+  * no parallel dot product on GPUs
+    * numpy.dot, should also try cupy.dot
+  * translate Dace version back to Python version
+* should setup as soon as possible
+* need repository
+* should look into the code
+* focus: attention models on real world graphs and synthetic graphs
+  * synthetic graphs are not uniformly distributed
+  * used Kronecker graphs from files: crashed for big graphs/high compute node numbers
+* repository gnns-scaling has scripts: https://spclgitlab.ethz.ch/maciej/gnns-scaling/-/tree/main/src/scripts
+* Robert is a bit overwhelmed at the moment: will talk tomorrow with Maciej
+
+
+13.03.2023 (based on Robert's notes)
+attending: Maciej and Robert
+* Maciej works on training formulations
+* Robert managed to run Alexandros' GCN code on Piz Daint: both the single node version as well as the
+  distributed one
+* Robert should also try the other scripts on Piz Daint:
+  * src/modes
+  * gcn: baseline to debug
+  * main focus:
+    * VA: simplest
+    * AGNN
+    * GAT: most complex
+  * use real world data sets
+  * always have to compute x H x W at the end with the result from of the attention computation
+  * Robert should discuss this with Alexandros
+* discuss AGNN:
+  * Robert will look up how the L2 norm is computed in the code
+  * ||H|| x ||H||^T will create a dense matrix of NxN (Robert misunderstood this)
+
+
+14.03.2023 (based on Robert's notes)
+attending: Alexandros, Maciej and Robert
+* another person might help since he currently doesn't have a SC project
+  * works on his thesis, which has a deadline in May
+* number of columns change depending on the weights
+  * keep it fixed for now
+* doesn't make sense to break over columns:
+  * messy
+  * instinct: will make computation more expansive
+* data set:
+  * can be downloaded from Piz Daint: /project/g34/graphs/data as well as scripts
+    * n1: Kronecker
+    * OBG: big
+    * reddit: small
+  * npz: Numpy compressed - extract edge_index.npy
+    * 2D array
+    * feat.npy: can just randomize the feature vector, so don't need it
+  * Alexandros posted code to load from a file to Mattermost
+  * needs a lot of memory
+  * Robert should start with the reddit dataset
+  * distribution:
+    * cutting: need the whole matrix
+    * only keep the slice
+    * numpy allows to memory map a file:
+      * file sorted by rows: cut by rows
+    * Piz Daint: should fit into the main memory for preprocessing
+      * one node cuts and sends blocks
+      * very slow to read files
+  * need some modularity with the loading
+  * arcpass: command line parameters
+    * Alex will code this
+  * need to be able to use random generated graphs as well as real world graphs
+  * blocks might not be same size across all processes: at the right and at the bottom
+  * maybe can also consider the Kronecker module from the GDI code
+* src/module: PyTorch code - not relevant
+* code:
+  * Can Alex help?
+  * Robert will work on the vanilla attention
+  * some other students might help with the models
+  * forward/backward pass
+  * need to get a couple of layers running
+    * output not on the correct process
+  * Florian implements training for CGNN
+  * vanilla: HH^T
+    * one step of complexity
+    * not clear what happens with back propagation
+    * depends on which story we want to tell
+  * will keep the number of processes to power of two, so it is easier to distribute
+
+
+16.03.2023 (based on Robert's notes)
+attending: Paolo Sylos Labini and Robert
+* Alexandros wrote CGNN inference implementation
+* Robert worked, based on that code, on a vanilla attention implementation
+* Paolo shows some code in src/dace_models
+* Paolo: it is import to implement multiple layers
+* Paolo has been working on the local formulation and back propgation
+* Paolo explains to Robert the norm vector ||H||
+  * looks at the existing tensor formulation
+  * vector of the element norm of the corresponding row
+  * cosign between two rows: cos(H_j, H_k)
+* should think about how to split the work:
+  * different implementations
+  * multiple layers
+* Robert not able to decide
+* Paolo will have a look at the CGNN code
+* Robert will add a spreadsheet with the memory distribution for CGNN and vanilla attention
+  to the repository
+
+
+20.03.2023 (based on Robert's notes)
+attending: Maciej and Robert
+* already discussed some issues over Mattermost
+* check that models work with real world graphs
+  * Robert can also delegate this:
+    * Paolo more interested in the back propagation
+    * Tiancheng: might help
+    * Greg: can do some coding
+  * big graph is especially important
+* Kronecker module:
+  * edge-oriented
+  * not sorted
+  * already have code to redistribute the edges, just need update the process assignment
+    function
+  * Patrick might be interested to work on this
+* backward pass:
+  * discuss this later today
+  * working through the general modeling
+  * inference: just forward pass
+  * training: forward and backward pass
+  * backward pass updates W at every layer
+    * needs access to the intermediate results of A, H and so on
+* Robert likes the work so far
+* work much more impactful than GDI
+
+
+20.03.2023 (based on Robert's notes)
+attending: Patrick Iff and Robert
+* Robert explains Patrick the code situation:
+  * Kronecker module from Graph500:
+    * number of vertices as power of two
+    * edge factor = average vertex degree
+    * returns distributed exactly 2^N * edge factor, where N is the vertex scale
+  * Robert start to explain the edge distribution code:
+    * Patrick not familiar with distributed code
+    * Robert will take care of that part
+* Robert shows Patrick how the adjaceny matrix will be distributed among the processes
+  * Patrick will come up with a function to assign edges to processes
+* consider edges to be directed
+* multiple edges between the same vertices will be ignored for now
+* Robert will ask Maciej to give Patrick access to the gnns-scaling repository
+* might be necessary to unpack the vertex UIDs from their 48 Bit reprsentation at the C level,
+  before they are transfered to Python
+
+
+20.03.2023 (based on Robert's notes)
+attending: Paolo and Robert
+* AGNN: norm computation is done row-wise
+* GAT:
+  * Paolo shows Robert Backprop_GNN_Global_Formulation (4).pdf and gives him a copy of the PDF
+    through the Mattermost channel
+  * formula (48) explains how the big matrix C is computed
+    * C has the same dimensions as A, should only calculate, where A is non-zero
+  * formula (52) explains how matrix Z is computed: normalize by total weight
+  * Paolo suggests that Robert looks at the DaCe code: gnns-scaling/src/dace_models/gat_gpu.py
+  * a_L, a_H are precomputed parameters to the GNN
+    * can be randomized
+  * look at table 2 from the Robert's paper version:
+    * 1, 1^T: vectors of ones - are more of notational convenience for the multiplation; Robert
+      should follow the instructions from the other PDF
+    * looks worse than it is
+  * should be faster than vanilla attention and AGNN
+* Paolo checked the existing attention model code, and at least the matrix part looks good
+  * doesn't know much about the distribution code though
+
+22.03.2023 (based on Robert's notes)
+attending: Maciej and Robert
+* new collaborator: Raghavendra
+* potential tasks:
+  * GAT
+  * benchmarking:
+    * real world graphs:
+      * have to ask Alex, because Robert can't find the Reddit graph in the npy format
+      * big one: is available
+    * synthetic
+    * weak scaling with Kronecker
+    * strong scaling with Kronecker
+    * 10 runs
+    * similar parameters to the ones in the paper
+
+
+23.03.2023 (based on Robert's notes)
+attending: Raghavendra and Robert
+* Raghavendra works in Illinois; Robert in Germany
+* Robert will ask Maciej to give Raghavendra access to the gnns-scaling repository
+* three inference models implemented so far:
+  * CGNN
+  * attention models: vanilla attention and AGNN
+    * Robert currently works on GAT
+  * later we will also implement backpropagation
+* Robert shows some of the code:
+  * generate adjacency matrix in three ways:
+    * uniform randomly distributed
+    * from file
+    * Kronecker
+  * have command line interface
+  * shows different layers of computation
+  * matrix distribution:
+    * done by hand, no framework involved
+* DaCe versions had some problems with the sparse matrices, that's why the new
+  code is based on CuPy
+* benchmark parameters:
+  * also need to check that the real world graphs work, example is in the file
+* Robert explains the multiplication overflow issue
+* will talk again tomorrow, after Raghavendra had a look and before he starts benchmarking
+
+
+25.03.2023 (based on Robert's notes)
+attending: Maciej, Raghavendra, Robert and Tiancheng Chen
+* Raghavendra:
+  * DaCe mentioned in the paper
+    -> Maciej:
+      * outdated information
+      * coding and debugging in DaCe was much harder
+  * could use CTF (https://github.com/cyclops-community/ctf) instead of manual
+    data distribution
+    -> Maciej: started with DaCe, and just went on from there, but good idea
+    * infrastructure already there, so won't make the change right now
+* backward propagation:
+  * Maciej explains inference and training:
+    * inference:
+      * layers are each a big step in the computation
+      * don't need state, just move forward
+    * training:
+      * need to keep some intermediate state
+      * loss function at the end of the forward pass
+      * take the loss function and apply some matrix multiplications
+* Tiancheng:
+  * have backwards propagation formulations for vanilla attention, AGNN and GAT
+  * vanilla attention:
+    * simplest
+    * Where did you find that model?
+      -> Maciej:
+        * folklore reference
+        * described in the Transformer paper
+        * reuse that notion in the context of GNNs
+    * problem: no normalization in each layer
+      -> Maciej:
+        * not an issue, because it is a systems design paper
+        * flops are flops
+        * results and their accuracy do not matter at the moment
+        * validation later by checking with DGL results
+        * but need performance results now for the paper
+        * don't bother with non-linearity right now
+* code: use a copy of the inference code
+  * vanilla attention: do not need to store C, but everything else is needed to be
+    stored for the backwards pass
+  * training:
+    * forward pass should be implemented by Raghavendra
+    * backward pass should be implemented by Tiancheng
+  * fusing?
+  * H x H^T fully computed: memory-inefficient
+  * need sampled dense dense matrix multiplication (SDDMM) operations
+  * CuPy computes this on the fly?: Raghavendra should check
+* Maciej has to leave, should continue discussion later
+
+
+25.03.2023 (based on Robert's notes)
+attending: Raghavendra and Robert
+* Robert and Raghavendra go over the distributed vanilla attention inference in detail
+  (for about 20 minutes)
+
+
+26.03.2023 (based on Robert's notes)
+attending: Grzegorz Kwasniewski and Robert
+* vanilla attention:
+  * fixed H dimensions: same for each layer
+* fusing/sampled dense dense matrix multiplication:
+  * GAT:
+    * C: N x N dense matrix
+    * A: sparse - should make use of that fact
+    * have single and distributed CPU implementation
+  * sparse multiplikation also needed to compute HH^T for vanilla attention
+  * Raghavendra worked on fuse function, but doesn't execute at the moment
+  * Robert shows Grzegorz where the fuse code would go
+  * Alexandros also mentioned cuSPARSE: library on top of Cuda for C and C++
+* GAT:
+  * could add a term to account for the intermediate results during the memory calculation
+    * would reduce tile size
+  * use two loops:
+    * first loop calculates A * C and everything until the communication is necessary
+    * store A * C
+    * allreduce
+    * second loop to finish the calculations
+    * allreduce of the final results to compute the new H tile
+* training:
+  * forward pass needs to go over all layers, before the backward pass is started
+  * Robert will add his first (incorrect) attempt of training for the vanilla attention
+    model to the repository, so that Grzegorz can have a look
+  * Grzegorz will try to work on training for the AGNN model
+
+
+28.03.2023 (based on Robert's notes)
+attending: Grzegorz and Robert
+* training models created by Maciej and Paolo
+* AGNN training:
+  * will target three layers
+  * should start with recomputing almost everything for the backward pass
+  * Grzegorz should use Paolos code of the vanilla attention as reference
+  * two loops: one for the forward pass and the other one for the backward pass
+  * Grzegorz should start with single node implementation
+    * might write some pseudo code first
+* 2 step GAT: Robert hasn't done any work on it, too much else to do
+* division issue with AGNN and GAT: Robert hasn't figured out if it is a conceptual issue
+  or an implementational one
+* Grzegorz can't run CUDA code locally
+  * will ask Maciej for access to a machine with NVIDIA GPU
+
+
+29.03.2023 (based on Robert's notes)
+attending: Maciej and Robert
+* Raghavendra: worked on real world graph
+* Robert is working on fixing issues with code:
+  * matrix distribution
+  * fixed CUDA kernel error checking yesterday
+  * wrote CUDA kernel for GAT inference yesterday
+  * maybe the deallocation of GPU memory is also broken, not a 100% sure
+* training:
+  * vanilla attention: Florian
+  * AGNN: Grzegorz
+  * GAT: Tiancheng wrote some kernels and some general code
+* if Robert needs help, should grab Paolo
+* Patrick very thorough, maybe he can help
+* data:
+  * can working on the full toolset later
+  * now need flops for the paper
+  * don't need accuracy now, so no loss function
+  * adding those edges to the Kronecker not significant
+* Torstens view of the paper was better than expected
+* Pawel works on the baselines from other systems
+* since Grzegorz and Raghavendra don't have access to a local NVIDIA GPU, maybe
+  they can use the interactive mode on Piz Daint
+
+
+29.03.2023 (based on Robert's notes)
+attending: Florian Scheidl and Robert
+* Florian worked on implementing training of the vanilla attention model for a single
+  compute node
+* met with Paolo and discussed CPU implementation
+* started to write GPU code
+* go over the code
+  * grad of loss function might not be necessary: Florian should confirm with Maciej
+  * two different H tiles, but uses the same H tile in the backward pass
+    * during the meeting, Robert thinks this might be fine (got confused with CGNN),
+      but later raises the point again in Mattermost
+  * need to update memory function accordingly
+* Florian thinks that Alex will work on the distributed code: Robert doesn't think so
+
+
+29.03.2023 (based on Robert's notes)
+attending: Maciej and Robert
+* isolated vertices: only zeros in a row
+  * results in numerical issues with AGNN and GAT
+* when adding additional edges, Kronecker graph is not fully compliant
+  * Maciej:
+    * that's fine, shouldn't happen in a GNN anyway, because there isolated
+      vertices make no sense
+    * still heavy-tail distribution
+
+
+29.03.2023 (based on Robert's notes)
+attending: Maciej and Robert
+* May may have another student who can help:
+  * knows Python very well
+  * knows GNNs
+* Raghavendra already works on GAT inference, maybe the student can work on GAT training
+
+
+30.03.2023 (based on Robert's notes)
+attending: Alexandros, Florian, Maciej, Paolo, Raghavendra, Robert and Tiancheng
+* rough management of the code: Robert
+* Florian works on vanilla attention training
+  * had a look at Tianchengs code
+  * helps with mass launching experiments
+  * should only integrate if it takes not more than 30 minutes
+* Grzegorz will help with AGNN after he has access to CSCS again
+* Tiancheng will try to finish GAT back propagation
+* vanilla attention training the most advanced
+* CGNN: don't do back propagation
+  * was only necessary for previous paper
+  * pebbling was novel aspect
+* Alexandros suggests to start with the simplest model and see what issues arise
+* vanilla attention back propagation:
+  * need help with distributed version
+  * CPU works, GPU not yet
+  * Alexandros can maybe help tomorrow on how to distribute
+  * Tiancheng can help with vanilla attention, so that we have something
+  * code is not pushed to the repository
+  * AGNN most complicated
+  * GAT simpler
+* Alexandros: Solved problem with SPMMD-like kernels?
+  * got to scale: will not run [unclear from the notes]
+  * have kernels for the inference of all models
+  * Tiancheng wrote some kernels
+  * adopted kernel for backpropagation of vanilla attention: needed another loop
+* Paolo: Keep intermediate results in memory?
+  * another paper suggested the following approach:
+    * if M (= number of edges) is involved: recompute
+    * if N (= number of vertices) is involved: keep it
+* Paolo can help:
+  * small tasks to offload
+  * scripts for running experiments and plotting
+* should sync online
+* Raghavendra works on GAT inference:
+  * should sync with Robert
+  * has two questions and will ask them later
+  * real world graph:
+    * runs out of memory
+    * none of the inference implementations is working
+    * Robert: 33 times the size of anything we are going to run with the synthetic
+      graphs, maybe should look for something smaller
+* Alexandros:
+  * should talk tomorrow
+  * basic scheme for distribution of the back propagation
+  * Are the schemes settled?
+    * Greg: simplicity [notes unclear]
+  * tiling simpler in comparison to the forward phase
+  * validation: single CPU version with distributed version
+  * redistribution of the data between layers is implemented, Robert feels
+    strongly that works, but no proof
+  * should write tests for validation
+* Alexandors should sync with Tiancheng, whether this is also applicable to GAT back
+  propagation
+
+
+30.03.2023 (based on Robert's notes)
+attenting: Raghavendra and Robert
+* real world graph:
+  * vanilla attention inference: fails during computation
+  * Raghavendra should ask Maciej, whether we can use a smaller graph
+* GAT: C[i,j] = HWaH[i] + aLWH[j]
+* broadcast matrix: error
+  * seems like there is one row less on one of the processes
+
+
+31.03.2023 (based on Robert's notes)
+attending: Alexandros, Florian, Paolo and Robert
+* Robert worked on a distributed version of CPU code for vanilla attention training
+* if Robert thinks this will work, Paolo and Florian want to start working on GAT
+  * they should synchronize with Tiancheng, which already wrote some code (see the main
+    branch of the repository)
+* GPU version of tiling should be applicable for distributed memory:
+  * two dimensional A
+  * replication of W
+  * H tiles
+* CPU version is very inefficient: didn't backport the optimizations of the GPU code
+* Alexandros joins the meeting
+* Alexandros reminds everyone to work together
+* Alexandros implemented inference for a previous version of the paper
+* reduce on sparse matrix not as bad as he initially thought as long as the sparse format
+  is the same: reduce on data vector
+* go over the GPU code:
+  * start data:
+    * A
+    * initial H
+    * list of W matrices
+    * expected output for the loss function
+  * forward and backwards are integrated into the same function, because they need Z from
+    forward pass in the backward pass
+  * dH: okay, since it is the tiny version: results in columns x columns matrix
+  * redistribute after each layer: square process grid guarantees that tiles are also square
+  * Z tile needs also to be redistributed
+  * CPU refence version to compare
+  * first loop for dN:
+    * dN is stored transposed
+  * dC is large sparse matrix
+  * Maciej suggested to avoid replicating A
+  * real world graph:
+    * a lot of vertices, but very sparse
+    * feature vector becomes the biggest issues
+    * in example, four times the size of the graph
+    * so even replicating A might okay in certain circumstances
+  * either pass A through the processes or H
+* code seems reasonable
+* first attempt at distributing training
+* Paolo has no experience in writing distributed code
+
+
+31.03.2023
+attending: Maciej and Robert
+* Robert thinks the changes of finishing in time are slim
+* most of the code was never tried on Piz Daint
+* Patrick might be able to start on running benchmarks
+* need Kronecker first:
+  * takes 5 minutes for 131k vertices and 1% density
+  * won't scale much further
+  * need distributed version
+  * Maciej:
+    * can also change parameters as long as the regime is useful
+    * can use the Kronecker graphs stored on Piz Daint
+* real world graph:
+  * Robert doesn't understand the Open Graph Benchmark website
+  * can choose a different graph
+  * run out of GPU memory on four compute nodes, where the graph loads successfully
+  * should try a smaller feature size of 16
+  * maybe Patrick can work on this
+* need some data to make it barely reasonable:
+  * could use inference data from past version
+  * need something new for the backward pass
+  * need three plots
+    * keep inference plots
+    * get one backward plot
+* Robert will work on the Kronecker tomorrow, so that we hopefully can
+  start to run things with higher compute node counts
+* Raghavendra: maybe can help Patrick or with the Kronecker code
+* vanilla attention:
+  * performance counts
+  * ignore multiplication overflows
+* GDI submission for SC is wrapped up
+* Maciej also helps Paolo with his paper
+
+
+01.04.2023
+attending: Maciej, Patrick, Raghavendra and Robert
+* three types of deadlines:
+  * resubmit: usually a lot is done, mostly finished
+  * safe submssion: code ready, just the writing needs to be done
+  * emergency: code ducttaped
+* Patrick will be running stuff, maybe a little bit debugging
+* Patrick also helps out with the SlimFly paper with Nils
+  * just change some plots, not much more
+* 8 to 9 papers for SC'23
+* Patrick can ask Raghavendra on running stuff on Piz Daint
+* Pavel works on DGL:
+  * should match parameters
+  * also used Kronecker graphs
+* Robert goes over the details of benchmarking:
+  * some code changes necessary:
+    * only run the GPU version, comment out all the CPU stuff, which was just
+      used as reference
+    * change the benchmark count to 10
+    * Robert will show him the changes necessary for the CGNN inference single node
+      script in Mattermost
+    * one version for a single node and distributed version
+  * Robert will give Patrick an example of the srun command with all necessary parameters
+  * look at the benchmark file, which covers most necessary parameters
+* Raghavendra will work on GAT and debugging the real world graph
+  * Raghavendra will show his GAT inference code in Mattermost and Robert will give feedback
+
+
+02.04.2023
+attending: Alexandros and Robert
+* processes call the broadcast inside the same communicator with different roots:
+  * probably have to use y instead of x
+* mpi4py seems to cache the small calls and that's why it gets slower
+* validation:
+  * maybe Alex has some code
+  * only if doesn't take too much of his time
+  * Robert knows how to do this, just didn't have the time to actually implement it
+
+
+03.04.2023
+attending: Alexandros, Florian, Maciej, Raghavendra, Robert and Tiancheng
+* three types of submission:
+  * done a month before the deadline
+  * done a week before the deadline
+  * emergency submission with just ducttaped code
+* need only training data for AGNN, GAT and vanilla attention, or just two out of three
+* vanilla attention:
+  * Robert just started to debug the distributed CPU version: spend the last hour getting
+    the infrastructure ready
+  * code should be wrapped by Thursday, so that we can spent the last day running the benchmarks
+* AGNN:
+  * one with normalization
+  * Greg was supposed to work on this, has access to Piz Daint now
+  * computational more like vanilla attention
+  * complexity is more like GAT
+* GAT:
+  * inference and backward pass validates for the sequential implementation
+  * applied fixes for rectangular adjacency matrix
+  * distributed forward pass is validated against the sequential version
+* Florian:
+  * see if he can help Tiancheng
+  * otherwise grab AGNN
+* should stick to longer derivations in the middle of the paper and the DAG by Tiancheng
+  * kernel description was added to the paper
+* real world graph:
+  * Raghavendra is working on this issue
+  * edits graph file
+  * memory issue
+  * there is some chance that is done by Friday
+* vanilla attention training: CPU vs. GPU
+  * results from the Mattermost channel: MSE over weight matrices
+  * sounds huge for the second layer
+  * probably something executed in the backwards pass of the second layer that is not executed in
+    the first layer
+  * single precision: seven digits
+  * double precision: 14 digits
+* Maciej uses the extra channels to not demotivate the additional people in the main channel
+* offtopic:
+  * Alexandros also works on Arrow thing
+    * able to run code
+    * paper is written, but no data yet
+    * good MPI weak scaling results
+  * Fortran project: Florians fuzzing of DaCe is going well
+
+
+04.04.2023
+attending: Maciej and Robert
+* performance issue of vanilla attention training with transpose
+* Robert will benchmark the vanilla attenting training on Piz Daint with the current version tonight
+  before he goes to sleep
+* Pawel works on DGL baseline
+* Robert can't help much more with debugging: he is exhausted
+* lunch meeting on Wednesday starting next week?
+  * Maciej will add Robert to the respective Mattermost channel where the announcement happens
+* remind Maciej in two weeks to talk to him about the weekly report that Robert should
+  send to Torsten
+
+
+05.04.2023
+attending: Maciej and Robert
+* Robert doesn't know anything about the status of the data
+* Robert works on distributed CPU and Florian on sequential GPU code
+
+19.04.2023
+attending: Alexandros, Maciej, Robert and Tiancheng
+* Maciej thanks Tiancheng for wrapping up the code (and also Robert)
+  * Tiancheng already did rerun the benchmarks
+  * rewritten code similar to GAT
+  * Tiancheng found the previous version very hard to read
+* two more baseline systems: Raghavendra tries to get them to work
+* hard to compare apples to apples: full batch vs. mini-batch
+  * should read 8.1 in the article
+* DGL vs. distDGL:
+  * single node: faster than distributed by almost three orders of magnitude - maybe crashed
+  * Maciej will ask Pawel
+  * makes us look bad
+  * DGL: completely overlap - probably gonna warrant a question by a reviewer
+* Maciej will extend/make the software stack clearer: current text doesnt make it clear to the reader
+* comparison to more baselines: need graph distribution
+* move forward:
+  * higher-order tensors/models
+    * should we really go for more complex models, not that popular (less than attention models)
+    * no clear fast implementation
+    * uniqe paper, so immediately novel
+    * Can use Carmens[?] work? CSF (compressed sparse fibers)
+    * get back to it in a couple of weeks:
+      * Maciej works on a survery on higher order models (triangles, four cliques) for graph subparts
+      * better accuracy, but doesn't scale (memory-wise, computational time)
+      * space-complexity grows exponentially
+  * mini-batching: one more dimesnsion for batch size
+    * pebbling approach or DaCe
+    * already done by someone else according to Greg
+      * based on SOAP
+      * sacrifice memory for lower bounds
+      * doesn't have anything for communication value/sparsity
+    * should make it more broader than GNN
+    * Lukas: sparse matrix multiplied with dense matrix
+      * permutate sparse matrix into an arrow (band on top, left and diagonal)
+      * was not better in shared memory, but for distributed environment it showed good benefits
+      * reductions in baseline make it much slower
+      * difficult to integrate?
+        * permutate and have to relay results again
+        * not very flexible in terms of blocks and compute nodes
+        * PhD project
+    * need to compare it to DGL
+    * tread it separately
+    * different pipeline
+    * Maciej would like a formulation that covers both
+    * use same language, same machine
+  * multi-headed attention: implementation-wise and theoretical level
+    * makes attention very powerful
+    * a lot of commercial systems use it
+    * it is a model variation similar to semi-ring
+  * one more, very vague: hacchian matrix - approximation
+    * pushed by SPCL
+    * never done for GNN
+  * separate work: all extensions for a specific audience
+  * scalability features change with model size: change design, asymptotic
+    * millions of columns of H, W instead of thousands
+    * number of layers not that interesting
+    * have to split H and W
+    * Introduce sparsity in H?
+      * Maciej: dense
+      * Alexandros: but with million of columns maybe sparse - Maciej: good question
+      * once you aggregate, it is dense
+      * at the end non-linearity, maybe sparse
+      * N x N dense nees a lot of compute nodes
+* Tiancheng:
+  * makes his own code generation (DaCo) for DaCe
+  * slow SPMMD operations: very different for each model
+  * automatically generate optimized code and comparte it to handoptimized code
+  * another student: optimized reductions in DaCe - maybe put these things together: DaCo/DaCe
+  * DaCo: a lot of papers, but doesn't perform too well
+    * can work for all approaches
+    * makes it easier to write new models
+* artifact description for SC'23:
+  * Robert is working on it
+  * should be able to push a first draft in an hour
+* arXiv:
+  * Before review?
+  * should put it out in a couple of weeks, but as soon as possible
+    * new baselines
+    * two weeks from now on: optimistic
+* discuss again in two weeks
+  * see if other people are interested
+  * Paolo willing to help, but needs to focus on his own SC paper/thesis
+  * Pawel: internship at Harvard
+  * Florian/Patrick can help, but have their own stuff
+  * Raghavendra might help, but will not driving stuff
+* Alexandros needs a student from a different field: banded times banded - BLAS library isn't very useful
+  for that scenario
+  * think about making it more GNN-specific

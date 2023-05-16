@@ -1,0 +1,16 @@
+unified_single_GAT	training	1	float32	50000	999812	3	128	432	10
+unified_single_AGNN	training	1	float32	50000	999812	3	128	563	5
+unified_single_VA	training	1	float32	50000	999812	3	128	504	5
+unified_distr_VA	training	1	float32	50000	999812	3	128	526	8
+unified_distr_VA	training	4	float32	50000	999812	3	128	1014	49
+unified_distr_AGNN	training	4	float32	50000	999812	3	128	1089	23
+unified_distr_GAT	training	4	float32	50000	999812	3	128	872	23
+unified_distr_GAT	training	1	float32	50000	999812	3	128	517	10
+unified_distr_AGNN	training	1	float32	50000	999812	3	128	659	9
+unified_distr_AGNN	training	4	float32	50000	1000000	3	128	1138	16
+unified_distr_VA	training	4	float32	50000	1000000	3	128	1028	43
+unified_distr_GAT	training	4	float32	50000	1000000	3	128	958	32
+unified_distr_GAT	training	4	float32	50001	1000000	3	128	1545	65
+unified_distr_VA	training	4	float32	50001	1000000	3	128	1457	58
+unified_distr_AGNN	training	4	float32	50001	1000000	3	128	1738	17
+unified_distr_AGNN	training	4	float32	50001	1000000	3	128	1196	45
