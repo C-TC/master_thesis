@@ -5,9 +5,9 @@ import os
 import scipy as sp
 
 import gnn_model
-import va_model
-import gat_model
-import agnn_model
+import va_model, va_model_old
+import gat_model, gat_model_old
+import agnn_model, agnn_model_old
 import utils
 
 from timeit import repeat
@@ -56,9 +56,9 @@ if __name__ == "__main__":
     parser.add_argument('--inference',
                         action='store_true',
                         help='Run inference only (not storing intermediate matrices).')
-    parser.add_argument('--layers', type=int, nargs="?", default=3, help='The number of layers in the GNN model.')
-    parser.add_argument('--repeat', type=int, nargs="?", default=4, help='The number of times to repeat the benchmark.')
-    parser.add_argument('--warmup', type=int, nargs="?", default=2, help='The number of warmup runs.')
+    parser.add_argument('--layers', type=int, nargs="?", default=2, help='The number of layers in the GNN model.')
+    parser.add_argument('--repeat', type=int, nargs="?", default=1, help='The number of times to repeat the benchmark.')
+    parser.add_argument('--warmup', type=int, nargs="?", default=1, help='The number of warmup runs.')
 
     args = vars(parser.parse_args())
     inference_only = args['inference']
@@ -138,31 +138,60 @@ if __name__ == "__main__":
     del A
 
     if model_name == 'GAT':
-        model_call_name = 'gat_model.GatModel'
-        model_params = 'W=W, a_l=a_l, a_r=a_r'
+        model = gat_model.GatModel([NJ,]*num_layers, NL, A_shape, tau, True, num_layers, inference_only)
+        for layer in model.layers:
+            layer.force_set_parameters(not inference_only, W=W, a_l=a_l, a_r=a_r)
+        model_old = gat_model_old.GatModel([NJ,]*num_layers, NL, A_shape, tau, True, num_layers, inference_only)
+        for layer in model_old.layers:
+            layer.force_set_parameters(not inference_only, W=W, a_l=a_l, a_r=a_r)
     elif model_name == 'AGNN':
-        model_call_name = 'agnn_model.AGNNmodel'
-        model_params = 'W=W'
+        model = agnn_model.AGNNmodel([NJ,]*num_layers, NL, A_shape, tau, True, num_layers, inference_only)
+        for layer in model.layers:
+            layer.force_set_parameters(not inference_only, W=W)
+        model_old = agnn_model_old.AGNNmodel([NJ,]*num_layers, NL, A_shape, tau, True, num_layers, inference_only)
+        for layer in model_old.layers:
+            layer.force_set_parameters(not inference_only, W=W)
     else:
-        model_call_name = 'va_model.VAmodel'
-        model_params = 'W=W'
-
-    model_setup = f"""
-model = {model_call_name}([NJ,]*num_layers, NL, A_shape, tau, True, num_layers, inference_only);
-for layer in model.layers:
-    layer.force_set_parameters(not inference_only, {model_params})
-loss = gnn_model.Loss(model, (A_blocks,mappings));
-optimizer = gnn_model.Optimizer(model, 0.001);
-"""
+        model = va_model.VAmodel([NJ,]*num_layers, NL, A_shape, tau, True, num_layers, inference_only)
+        for layer in model.layers:
+            layer.force_set_parameters(not inference_only, W=W)
+        model_old = va_model_old.VAmodel([NJ,]*num_layers, NL, A_shape, tau, True, num_layers, inference_only)
+        for layer in model_old.layers:
+            layer.force_set_parameters(not inference_only, W=W)
+    
+    loss = gnn_model.Loss(model, (A_blocks,mappings))
+    optimizer = gnn_model.Optimizer(model, 0.001)
+    loss_old = gnn_model.Loss(model_old, (A_blocks,mappings))
+    optimizer_old = gnn_model.Optimizer(model_old, 0.001)
 
     # Run the model
     print("Benchmarking the model on GPU...")
     if inference_only:
         gpu_stmt = "model.forward((A_blocks,mappings), H); cp.cuda.get_current_stream().synchronize()"
     else:
-        gpu_stmt = "loss.backward(model.forward((A_blocks,mappings), H), target); optimizer.step(); cp.cuda.get_current_stream().synchronize()"
+        gpu_stmt = "loss.backward(model.forward((A_blocks,mappings), H), target); cp.cuda.get_current_stream().synchronize()"
 
-    gpu_setup = model_setup + "cp.cuda.get_current_stream().synchronize()"
+    gpu_setup = "cp.cuda.get_current_stream().synchronize()"
+    gpu_runtimes = repeat(gpu_stmt,
+                          setup=gpu_setup,
+                          repeat=num_warmup + num_repeats,
+                          number=1,
+                          globals={
+                              **locals(),
+                              **globals()
+                          })
+    print(
+        f"GPU: {utils.time_to_ms(np.median(gpu_runtimes[num_warmup:]))} +- {utils.time_to_ms(np.std(gpu_runtimes[num_warmup:]))}"
+    )
+
+    
+    print("Benchmarking the model_old on GPU...")
+    if inference_only:
+        gpu_stmt = "model_old.forward((A_blocks,mappings), H); cp.cuda.get_current_stream().synchronize()"
+    else:
+        gpu_stmt = "loss_old.backward(model_old.forward((A_blocks,mappings), H), target); cp.cuda.get_current_stream().synchronize()"
+
+    gpu_setup = "cp.cuda.get_current_stream().synchronize()"
     gpu_runtimes = repeat(gpu_stmt,
                           setup=gpu_setup,
                           repeat=num_warmup + num_repeats,
@@ -176,10 +205,12 @@ optimizer = gnn_model.Optimizer(model, 0.001);
     )
 
     # Logging the results
-    filename = 'unified_results.csv'
+    filename = 'cscmm_ratio_results.csv'
+    timing_model = model.layers[1].timing_data[-2:]
+    timing_model_old = model_old.layers[1].timing_data[-2:]
 
     with open(filename, 'a') as f:
-        # modelname, inference/training, num_nodes, dtype, Vertices, Edges, num_layers, feature_dim, time, std.
+        # modelname, Vertices, Edges, num_layers, features, model cscmm, model total backward, old model cscmm, old model total backward.
         f.write(
-            f'unified_single_{model_name}\t{task}\t1\t{dtype}\t{num_vertices}\t{num_edges}\t{num_layers}\t{NJ}\t{utils.time_to_ms(np.median(gpu_runtimes[num_warmup:]))}\t{utils.time_to_ms(np.std(gpu_runtimes[num_warmup:]))}\n'
+            f'{model_name}\t{num_vertices}\t{num_edges}\t{num_layers}\t{NJ}\t{timing_model[0]}\t{timing_model[1]}\t{timing_model_old[0]}\t{timing_model_old[1]}\n'
         )

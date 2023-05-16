@@ -362,10 +362,8 @@ class GATconv(gnn_model.GnnLayer):
             for k in range(0, self.A_shape[1], self.tau):
                 A_block = A_blocks[i // self.tau][k // self.tau]
                 Alpha_data_block = self.ctx.Alpha_data_blocks[i // self.tau][k // self.tau]
-                mapping_block = mapping_blocks[i // self.tau][k // self.tau]
-                Alpha_T_dev = cp.sparse.csr_matrix((cp.asarray(Alpha_data_block)[cp.asarray(
-                    mapping_block[0])], cp.asarray(mapping_block[1]), cp.asarray(mapping_block[2])),
-                                                   shape=(A_block.shape[1], A_block.shape[0]))
+                Alpha_T_dev = cp.sparse.csr_matrix((cp.asarray(Alpha_data_block), cp.asarray(A_block.indices), cp.asarray(A_block.indptr)),
+                                                   shape=A_block.shape).T
                 dM[k:k + A_block.shape[1], :] += cp.asnumpy(Alpha_T_dev @ dZ_dev)
         cscmm_time += time.perf_counter() - time_0
         dM[0:self.A_shape[0], :] += cp.asnumpy(dl[0:self.A_shape[0], None] @ cp.asarray(self.a_l[None, :]))
