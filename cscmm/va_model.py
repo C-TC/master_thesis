@@ -14,6 +14,7 @@ from copy import deepcopy
 
 import gnn_model
 from gnn_model import Parameter
+import time
 
 
 def generate_blocks_inference(
@@ -91,6 +92,8 @@ class VAconv(gnn_model.GnnLayer):
 
         self.A_shape = A_shape
         self.tau = tau
+
+        self.timing_data = []
 
     def init_parameters(self, rng, dtype, cache_grad: bool = True):
         self.parameters.W = Parameter(
@@ -205,12 +208,15 @@ class VAconv(gnn_model.GnnLayer):
         A_blocks: List[List[sparse.csr_matrix]] = A_mapping_blocks[0]
         mapping_blocks = A_mapping_blocks[1]
         A_dim = max(self.A_shape)
+        start_time = time.perf_counter()
+        cscmm_time = 0.0
 
         # relu
         dZ = grad_out * (self.ctx.Z > 0)
         self.ctx.Z = None
 
         # dN = M^T @ dZ
+        time_0 = time.perf_counter()
         dN = np.zeros_like(self.ctx.N)
         for k in range(0, self.A_shape[1], self.tau):
             A_block_shape_1 = A_blocks[0][k // self.tau].shape[1]
@@ -224,6 +230,7 @@ class VAconv(gnn_model.GnnLayer):
                                                      shape=(A_block.shape[1], A_block.shape[0]))
                 dN_tile_dev += M_T_block_dev @ cp.asarray(dZ[i:i + A_block.shape[0], :])
             dN[k:k + A_block_shape_1, :] = cp.asnumpy(dN_tile_dev)
+        cscmm_time += time.perf_counter() - time_0
         M_T_block_dev = None
         dN_tile_dev = None
         self.ctx.M_data_blocks = None
@@ -282,6 +289,7 @@ class VAconv(gnn_model.GnnLayer):
         dH_tile_1_dev = None
 
         # dH += dC.T @ H
+        time_1 = time.perf_counter()
         for k in range(0, self.A_shape[1], self.tau):
             A_block_shape_1 = A_blocks[i // self.tau][0].shape[1]
             dH_tile_dev = cp.asarray(dH[k:k + A_block_shape_1, :])
@@ -294,10 +302,13 @@ class VAconv(gnn_model.GnnLayer):
                                                       shape=(A_block.shape[1], A_block.shape[0]))
                 dH_tile_dev += dC_T_block_dev @ cp.asarray(self.ctx.H[i:i + A_block.shape[0], :])
             dH[k:k + A_block_shape_1, :] = cp.asnumpy(dH_tile_dev)
+        cscmm_time += time.perf_counter() - time_1
         dC_T_block_dev = None
         dH_tile_dev = None
         dC_data_blocks = None
         self.ctx.H = None
+        end_time = time.perf_counter()
+        self.timing_data.extend([cscmm_time, end_time - start_time])
 
         return dH
 

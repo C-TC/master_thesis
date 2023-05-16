@@ -15,6 +15,7 @@ from copy import deepcopy
 
 import gnn_model
 from gnn_model import Parameter
+import time
 
 
 def generate_blocks_inference(
@@ -98,6 +99,8 @@ class GATconv(gnn_model.GnnLayer):
 
         self.A_shape = A_shape
         self.tau = tau
+
+        self.timing_data = []
 
     def init_parameters(self, rng, dtype, cache_grad: bool = True):
         self.parameters.W = Parameter(
@@ -312,6 +315,9 @@ class GATconv(gnn_model.GnnLayer):
         A_blocks: List[List[sparse.csr_matrix]] = A_mapping_blocks[0]
         mapping_blocks: List[List[List[np.ndarray]]] = A_mapping_blocks[1]
         A_dim = max(self.A_shape)
+        start_time = time.perf_counter()
+        cscmm_time = 0.0
+
         # relu
         dZ = grad_out * (self.ctx.Z > 0)
         # free memory
@@ -349,6 +355,7 @@ class GATconv(gnn_model.GnnLayer):
         self.ctx.r = None
 
         # dM = dl @ a_l.T + dr @ a_r.T + Alpha.T @ dZ
+        time_0 = time.perf_counter()
         dM = np.zeros_like(self.ctx.M, dtype=grad_out.dtype)
         for i in range(0, self.A_shape[0], self.tau):
             dZ_dev = cp.asarray(dZ[i:i + A_blocks[i // self.tau][0].shape[0], :])
@@ -360,6 +367,7 @@ class GATconv(gnn_model.GnnLayer):
                     mapping_block[0])], cp.asarray(mapping_block[1]), cp.asarray(mapping_block[2])),
                                                    shape=(A_block.shape[1], A_block.shape[0]))
                 dM[k:k + A_block.shape[1], :] += cp.asnumpy(Alpha_T_dev @ dZ_dev)
+        cscmm_time += time.perf_counter() - time_0
         dM[0:self.A_shape[0], :] += cp.asnumpy(dl[0:self.A_shape[0], None] @ cp.asarray(self.a_l[None, :]))
         dM[0:self.A_shape[1], :] += cp.asnumpy(dr[0:self.A_shape[1], None] @ cp.asarray(self.a_r[None, :]))
 
@@ -397,6 +405,9 @@ class GATconv(gnn_model.GnnLayer):
         # free memory
         dM_dev = None
         self.ctx.H = None
+
+        end_time = time.perf_counter()
+        self.timing_data.extend([cscmm_time, end_time - start_time])
 
         return dH
 
