@@ -58,12 +58,7 @@ class GATconvDistr(gat_model.GATconv):
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
         H_tile_1 = H
-        if bcast_rank == y:
-            # broadcast H_tile_1 from diagonal.
-            H_tile_2 = H_tile_1
-        else:
-            H_tile_2 = np.zeros_like(H_tile_1)
-        utils.bcast_matrix(H_tile_2, self.bcast_comm, y)
+        H_tile_2 = utils.diagonal_exchange(H_tile_1, self.cart_comm)
 
         # M = H @ W
         # TODO: optimize these lines (compute on the fly?)
@@ -231,22 +226,14 @@ class GATconvDistr(gat_model.GATconv):
                     mapping_block[0])], cp.asarray(mapping_block[1]), cp.asarray(mapping_block[2])),
                                                    shape=(A_block.shape[1], A_block.shape[0]))
                 dM_p2_tile_2[k:k + A_block.shape[1], :] += cp.asnumpy(Alpha_T_dev @ dZ_dev)
-        # Reduce dM_p2_tile_2 on diagonal
-        # TODO: not sure why self.bcast_comm.Reduce(MPI.IN_PLACE, dM_p2_tile_2, op=MPI.SUM, root=y) does not work
-        dM_p2_tile_2_reduced = np.zeros_like(dM_p2_tile_2, dtype=grad_out.dtype)
-        self.bcast_comm.Reduce(dM_p2_tile_2, dM_p2_tile_2_reduced, op=MPI.SUM, root=y)
-        if bcast_rank == y:
-            # dr @ a_r.T
-            dM_p2_tile_2_reduced[0:self.A_shape[1], :] += cp.asnumpy(dr_tile_2[0:self.A_shape[1],
-                                                                               None]) @ self.a_r[None, :]
+                
+        self.bcast_comm.Allreduce(MPI.IN_PLACE, dM_p2_tile_2, op=MPI.SUM)
+        dM_p2_tile_2[0:self.A_shape[1], :] +=  cp.asnumpy(dr_tile_2[0:self.A_shape[1], None]) @ self.a_r[None, :]
+        dM_p2_tile_2_transpose = utils.diagonal_exchange(dM_p2_tile_2, self.cart_comm)
 
-        # broadcast dM_p2_tile_2 from diagonal
-        # self.reduce_comm.Bcast(dM_p2_tile_2_reduced, root=x)
-        utils.bcast_matrix(dM_p2_tile_2_reduced, self.reduce_comm, x)
-
-        # Rename dM_p2_tile_2 to dM_p2_tile_1
-        dM_p2_tile_1 = dM_p2_tile_2_reduced
-        dM_p2_tile_2_reduced = None
+        # Rename dM_p2_tile_2_transpose to dM_p2_tile_1
+        dM_p2_tile_1 = dM_p2_tile_2_transpose
+        dM_p2_tile_2_transpose = None
         dM_tile_1 += dM_p2_tile_1
         dM_p2_tile_1 = None
 
