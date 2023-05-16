@@ -59,12 +59,13 @@ class VAconvDistr(va_model.VAconv):
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
         H_tile_1 = H
-        if bcast_rank == y:
-            # broadcast H_tile_1 from diagonal.
+        if x == y:
             H_tile_2 = H_tile_1
         else:
             H_tile_2 = np.zeros_like(H_tile_1)
-        utils.bcast_matrix(H_tile_2, self.bcast_comm, y)
+            dest_coords = (y, x)
+            dest_rank = self.cart_comm.Get_cart_rank(dest_coords)
+            self.cart_comm.Sendrecv(H_tile_1, dest=dest_rank, recvbuf=H_tile_2, source=dest_rank)
 
         # N = H @ W
         N_tile_2 = np.zeros((self.ceil_A_shape, self.out_channel), dtype=H.dtype)
@@ -217,24 +218,27 @@ class VAconvDistr(va_model.VAconv):
                                                       shape=(A_block.shape[1], A_block.shape[0]))
                 dH_seg_tile_2_dev += dC_T_block_dev @ cp.asarray(self.ctx.H_tile_1[i:i + A_block.shape[0], :])
             dH_tile_2_part_2[k:k + A_block_shape_1, :] = cp.asnumpy(dH_seg_tile_2_dev)
-        # Reduce dH_tile_2_part_2 on diagonal
-        dH_tile_2_part_2_diag = np.zeros_like(dH_tile_2_part_2)
-        self.bcast_comm.Reduce(dH_tile_2_part_2, dH_tile_2_part_2_diag, op=MPI.SUM, root=y)
+        # Redistribute dH_tile_2_part_2
+        self.bcast_comm.Allreduce(MPI.IN_PLACE, dH_tile_2_part_2, op=MPI.SUM)
+        dH_tile_2 = dH_tile_2_part_1 + dH_tile_2_part_2
+        if x == y:
+            dH_tile_2_transpose = dH_tile_2
+        else:
+            dest_coord = (y, x)
+            dest_rank = self.cart_comm.Get_cart_rank(dest_coord)
+            dH_tile_2_transpose = np.zeros_like(dH_tile_2)
+            self.cart_comm.Sendrecv(dH_tile_2, dest=dest_rank, recvbuf=dH_tile_2_transpose, source=dest_rank)
+        
+        dH_tile_2 = None
         dH_tile_2_part_2 = None
         dC_T_block_dev = None
         dH_seg_tile_2_dev = None
         dC_data_blocks = None
         self.ctx.H_tile_1 = None
         self.ctx.H_tile_2 = None
-
-        # add dH_tile_2_part_1 and dH_tile_2_part_2 on diagonal
-        dH_tile_2_diag = dH_tile_2_part_1 + dH_tile_2_part_2_diag
         dH_tile_2_part_1 = None
-        dH_tile_2_part_2_diag = None
 
-        # broadcast dH_tile_2_diag
-        self.reduce_comm.Bcast(dH_tile_2_diag, root=x)
-        dH_tile_1 += dH_tile_2_diag
+        dH_tile_1 += dH_tile_2_transpose
 
         return dH_tile_1
 
