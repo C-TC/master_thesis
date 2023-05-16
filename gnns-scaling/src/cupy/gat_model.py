@@ -488,7 +488,7 @@ class GATconv(gnn_model.GnnLayer):
             :return: current block of dAlpha_data
         """
         dAlpha_data = cp.zeros_like(Alpha_data_block, Alpha_data_block.dtype)
-        kernels_gat.gat_backward_dZ_dAlpha_rowdot[min(65535,
+        kernels_gat.gat_backward_dZ_dAlpha_rowdot_shfl[min(65535,
                                                       len(A_block.indptr) - 1),
                                                   128](dAlpha_data, row_dot_dev[row_start:row_start + A_block.shape[0]],
                                                        cp.asarray(Alpha_data_block),

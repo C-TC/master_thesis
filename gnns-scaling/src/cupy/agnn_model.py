@@ -174,7 +174,7 @@ class AGNNconv(gnn_model.GnnLayer):
                 Q_block_data_dev = cp.zeros_like(A_block.data)
                 indices_dev = cp.asarray(A_block.indices)
                 indptr_dev = cp.asarray(A_block.indptr)
-                kernels_agnn_new.forward_ahhtnorm[min(65535, A_block.shape[0]),
+                kernels_agnn_new.forward_ahhtnorm_shfl[min(65535, A_block.shape[0]),
                                                   128](Q_block_data_dev, indices_dev, indptr_dev, H_seg_tile_1_dev,
                                                        cp.asarray(H[k:k + A_block.shape[1], :]),
                                                        n_dev[i:i + A_block.shape[0]], n_dev[k:k + A_block.shape[1]])
@@ -319,7 +319,7 @@ class AGNNconv(gnn_model.GnnLayer):
                 A_block = A_blocks[i // self.tau][k // self.tau]
                 dC_block_data = cp.zeros_like(A_block.data)
                 dD_block_data = cp.zeros_like(A_block.data)
-                kernels_agnn_new.backward_Z_Q_CD[min(65535, A_block.shape[0]),
+                kernels_agnn_new.backward_Z_Q_CD_shfl[min(65535, A_block.shape[0]),
                                                  128](dC_block_data, dD_block_data, cp.asarray(A_block.indices),
                                                       cp.asarray(A_block.indptr), dZ_seg_dev,
                                                       cp.asarray(self.ctx.M[k:k + A_block.shape[1], :]),
