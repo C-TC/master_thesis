@@ -242,7 +242,15 @@ if __name__ == "__main__":
     cart_comm.Bcast(a_r_local, root=0)
 
     utils.mpi_print(cart_rank, "Generating adjacency matrix blocks...")    
-    tau, A_blocks, mappings = gat_model.generate_blocks_training(lA, NJ)
+    if model_name == 'VA':
+        tau, A_blocks, mappings = va_model.generate_blocks_inference(
+            lA, NJ) if inference_only else va_model.generate_blocks_training(lA, NJ)
+    elif model_name == 'GAT':
+        tau, A_blocks, mappings = gat_model.generate_blocks_inference(
+            lA, NJ) if inference_only else gat_model.generate_blocks_training(lA, NJ)
+    else:
+        tau, A_blocks, mappings = agnn_model.generate_blocks_inference(
+            lA, NJ) if inference_only else agnn_model.generate_blocks_training(lA, NJ)
     utils.mpi_print(cart_rank, f"Tile size: {tau} (rows)")
 
     # Create the GNN model
