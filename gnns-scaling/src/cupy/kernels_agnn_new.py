@@ -332,5 +332,5 @@ def benchmark_agnn_backward_kernels(nodes=15,
 if __name__ == "__main__":
     test_agnn_forward_kernels()
     test_agnn_backward_kernels()
-    benchmark_agnn_forward_kernels()
-    benchmark_agnn_backward_kernels()
+    # benchmark_agnn_forward_kernels()
+    # benchmark_agnn_backward_kernels()
