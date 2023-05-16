@@ -59,13 +59,7 @@ class VAconvDistr(va_model.VAconv):
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
         H_tile_1 = H
-        if x == y:
-            H_tile_2 = H_tile_1
-        else:
-            H_tile_2 = np.zeros_like(H_tile_1)
-            dest_coords = (y, x)
-            dest_rank = self.cart_comm.Get_cart_rank(dest_coords)
-            self.cart_comm.Sendrecv(H_tile_1, dest=dest_rank, recvbuf=H_tile_2, source=dest_rank)
+        H_tile_2 = utils.diagonal_exchange(H, self.cart_comm)
 
         # N = H @ W
         N_tile_2 = np.zeros((self.ceil_A_shape, self.out_channel), dtype=H.dtype)
@@ -221,13 +215,7 @@ class VAconvDistr(va_model.VAconv):
         # Redistribute dH_tile_2_part_2
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dH_tile_2_part_2, op=MPI.SUM)
         dH_tile_2 = dH_tile_2_part_1 + dH_tile_2_part_2
-        if x == y:
-            dH_tile_2_transpose = dH_tile_2
-        else:
-            dest_coord = (y, x)
-            dest_rank = self.cart_comm.Get_cart_rank(dest_coord)
-            dH_tile_2_transpose = np.zeros_like(dH_tile_2)
-            self.cart_comm.Sendrecv(dH_tile_2, dest=dest_rank, recvbuf=dH_tile_2_transpose, source=dest_rank)
+        dH_tile_2_transpose = utils.diagonal_exchange(dH_tile_2, self.cart_comm)
         
         dH_tile_2 = None
         dH_tile_2_part_2 = None

@@ -60,12 +60,8 @@ class AGNNconvDistr(agnn_model.AGNNconv):
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
         H_tile_1 = H
-        if bcast_rank == y:
-            # broadcast H_tile_1 from diagonal.
-            H_tile_2 = H_tile_1
-        else:
-            H_tile_2 = np.zeros_like(H_tile_1)
-        utils.bcast_matrix(H_tile_2, self.bcast_comm, y)
+        H_tile_2 = utils.diagonal_exchange(H, self.cart_comm)
+
 
         # M = H @ W
         M_tile_2 = np.zeros((self.ceil_A_shape, self.out_channel), dtype=H.dtype)
@@ -289,12 +285,13 @@ class AGNNconvDistr(agnn_model.AGNNconv):
             dH_tile_2_part_2[k:k + A_block_shape_1, :] = cp.asnumpy(dH_seg_tile_2_dev)
             dn_tile_2[k:k + A_block_shape_1] = cp.asnumpy(dn_seg_tile_2_dev)
 
-        dH_tile_2_part_2_diag = np.zeros_like(dH_tile_2_part_2)
-        dn_tile_2_diag = np.zeros_like(dn_tile_2)
-        # dH += dC.T @ H, store on diagonal
-        self.bcast_comm.Reduce(dH_tile_2_part_2, dH_tile_2_part_2_diag, op=MPI.SUM, root=y)
-        # dn += dD.T @ n, store on diagonal
-        self.bcast_comm.Reduce(dn_tile_2, dn_tile_2_diag, op=MPI.SUM, root=y)
+        self.bcast_comm.Allreduce(MPI.IN_PLACE, dH_tile_2_part_2, MPI.SUM)
+        self.bcast_comm.Allreduce(MPI.IN_PLACE, dn_tile_2, MPI.SUM)
+        # dH += dM @ W.T + dC.T @ H
+        dH_tile_2 = dH_tile_2_part_1 + dH_tile_2_part_2
+        dH_tile_2_transpose = utils.diagonal_exchange(dH_tile_2, self.cart_comm)
+        dn_tile_2_transpose = utils.diagonal_exchange(dn_tile_2, self.cart_comm)
+        
         dH_tile_2_part_2 = None
         dn_tile_2 = None
         self.ctx.H_tile_2 = None
@@ -306,19 +303,10 @@ class AGNNconvDistr(agnn_model.AGNNconv):
         T_indices_dev = None
         T_indptr_dev = None
 
-        # dH += dM @ W.T + dC.T @ H, store on diagonal
-        dH_tile_2_diag = dH_tile_2_part_1 + dH_tile_2_part_2_diag
         dH_tile_2_part_1 = None
-        dH_tile_2_part_2_diag = None
 
-        # broadcast to tile 1
-        utils.bcast_matrix(dH_tile_2_diag, self.reduce_comm, x)
-        self.reduce_comm.Bcast(dn_tile_2_diag, root=x)
-
-        dH_tile_1 += dH_tile_2_diag
-        dH_tile_2_diag = None
-        dn_tile_1 += dn_tile_2_diag
-        dn_tile_2_diag = None
+        dH_tile_1 += dH_tile_2_transpose
+        dn_tile_1 += dn_tile_2_transpose
 
         # dH += H * dn / n
         dH_tile_1[0:self.A_shape[0], :] += self.ctx.H_tile_1[0:self.A_shape[0], :] * (

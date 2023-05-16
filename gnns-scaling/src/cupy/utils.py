@@ -434,6 +434,30 @@ def bcast_matrix(H: np.ndarray, comm: MPI.Cartcomm, root: int):
     H = H.reshape((lNK, lNJ))
 
 
+def diagonal_exchange(H: np.ndarray, comm: MPI.Cartcomm):
+    cart_rank = comm.Get_rank()
+    x, y = comm.Get_coords(cart_rank)
+    dest_coords = (y, x)
+    dest_rank = comm.Get_cart_rank(dest_coords)
+    if cart_rank == dest_rank:
+        # diagonal block
+        return H
+        
+    H_T = np.zeros_like(H)
+    if len(H.shape) == 1:
+        comm.Sendrecv(H, dest=dest_rank, recvbuf=H_T, source=dest_rank)
+        return H_T
+    
+    step = int(np.floor(2**31 / (H.shape[1] * H.dtype.itemsize)))
+    for i in range(0, H.shape[0], step):
+        if i+step <= H.shape[0]:
+            send_size = step
+        else:
+            send_size = H.shape[0] - i
+        comm.Sendrecv(H[i:i+send_size, :], dest=dest_rank, recvbuf=H_T[i:i+send_size, :], source=dest_rank)
+    return H_T    
+
+
 def generate_blocks_from_tau(
         A: sparse.csr_matrix, tau: int,
         generate_mapping: bool) -> Tuple[int, List[List[sparse.csr_matrix]], List[List[List[np.ndarray]]]]:
