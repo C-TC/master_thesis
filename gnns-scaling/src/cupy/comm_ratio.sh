@@ -3,8 +3,8 @@
 function create_script {
 script_body="#!/bin/bash -l
 #SBATCH --job-name="gnn"
-#SBATCH --output="${NODES}_${KRON_V}_${KRON_E}_${FEATS}.o"
-#SBATCH --error="${NODES}_${KRON_V}_${KRON_E}_${FEATS}.e"
+#SBATCH --output="${NODES}_${KRON_V}_${KRON_E}.o"
+#SBATCH --error="${NODES}_${KRON_V}_${KRON_E}.e"
 #SBATCH --account="g34"
 #SBATCH --time=01:00:00
 #SBATCH --nodes=${NODES}
@@ -26,18 +26,17 @@ srun python bench_comm_ratio.py  -m VA -d kronecker -v ${KRON_V} -e ${KRON_E} --
 srun python bench_comm_ratio.py  -m GAT -d kronecker -v ${KRON_V} -e ${KRON_E} --features 128
 srun python bench_comm_ratio.py  -m AGNN -d kronecker -v ${KRON_V} -e ${KRON_E} --features 128"
 
-script_name="${NODES}_${KRON_V}_${KRON_E}_${FEATS}.sbatch"
+script_name="${NODES}_${KRON_V}_${KRON_E}.sbatch"
 echo "${script_body}" > "${script_name}"
 sbatch ${script_name}
 }
 
 TUPLES=(
-    "262144 6871948"
-    "262144 68719477"
-    "262144 687194767"
+    "524288 27487791"
+    "1048576 109951163"
 )
 
-NODESLIST=(4 16 64)
+NODESLIST=(4 16 64 256)
 
 # Loop over the list of lists
 for STRING in "${TUPLES[@]}"; do
@@ -50,7 +49,6 @@ for STRING in "${TUPLES[@]}"; do
         export NODES=$NODES
         export KRON_V=$KRON_V
         export KRON_E=$KRON_E
-        export FEATS=$feat
         create_script
     done
 done
