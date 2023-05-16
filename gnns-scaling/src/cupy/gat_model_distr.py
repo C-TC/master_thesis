@@ -15,6 +15,7 @@ from scipy import sparse
 from timeit import repeat
 from typing import List, Tuple, Union
 
+import time
 
 class GATconvDistr(gat_model.GATconv):
     def __init__(self, in_channel: int, out_channel: int, A_shape: List[int], ceil_A_shape: int, tau: int,
@@ -45,6 +46,8 @@ class GATconvDistr(gat_model.GATconv):
         self.reduce_comm = reduce_comm
         self.cart_comm = cart_comm
 
+        self.timing_data = []
+
     def forward_gpu(self, A_mapping_blocks: Tuple, H: np.ndarray):
         """ Forward pass of GAT layer on GPU.
             
@@ -58,7 +61,11 @@ class GATconvDistr(gat_model.GATconv):
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
         H_tile_1 = H
+        start_time = time.perf_counter()
+        comm_time = 0.0
         H_tile_2 = utils.diagonal_exchange(H_tile_1, self.cart_comm)
+        comm_time += time.perf_counter() - start_time
+
 
         # M = H @ W
         # TODO: optimize these lines (compute on the fly?)
@@ -93,7 +100,9 @@ class GATconvDistr(gat_model.GATconv):
 
         E_row_max_host = cp.asnumpy(E_row_max_dev)
         # Allreduce E_row_max
+        time_0 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, E_row_max_host, op=MPI.MAX)
+        comm_time += time.perf_counter() - time_0
         E_row_max_dev = cp.asarray(E_row_max_host)
         E_row_max_host = None
 
@@ -114,7 +123,9 @@ class GATconvDistr(gat_model.GATconv):
 
         alpha_row_sum_host = cp.asnumpy(alpha_row_sum_dev)
         # Allreduce alpha_row_sum
+        time_1 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, alpha_row_sum_host, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_1
         alpha_row_sum_dev = cp.asarray(alpha_row_sum_host) + cp.finfo(alpha_row_sum_host.dtype).eps
         alpha_row_sum_host = None
 
@@ -127,7 +138,9 @@ class GATconvDistr(gat_model.GATconv):
                 self.gat_forward_gpu_kernel_softmax_2_matmul_M(i, k, A_block, Alpha_data_block, M_tile_2, Z_tile_1,
                                                                alpha_row_sum_dev)
         # Allreduce Z_tile_1
+        time_2 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, Z_tile_1, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_2
 
         # relu
         # TODO: fuse this in Z = Alpha @ M?
@@ -142,6 +155,8 @@ class GATconvDistr(gat_model.GATconv):
             self.ctx.Alpha_data_blocks = Alpha_data_blocks
             self.ctx.Z_tile_1 = Z_tile_1
 
+        end_time = time.perf_counter()
+        self.timing_data.extend([end_time - start_time - comm_time, comm_time])
         return output
 
     def backward_gpu(self, A_mapping_blocks: Tuple, grad_out: np.ndarray):
@@ -156,6 +171,8 @@ class GATconvDistr(gat_model.GATconv):
         cart_rank = self.cart_comm.Get_rank()
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
+        start_time = time.perf_counter()
+        comm_time = 0.0
         # relu
         dZ_tile_1 = grad_out * (self.ctx.Z_tile_1 > 0)
         # free memory
@@ -176,7 +193,9 @@ class GATconvDistr(gat_model.GATconv):
             dAlpha_blocks.append(dAlpha_blocks_i)
         # Allreduce dAlpha_dot_Alpha_dev
         dAlpha_dot_Alpha_host = cp.asnumpy(dAlpha_dot_Alpha_dev)
+        time_0 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, dAlpha_dot_Alpha_host, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_0
         dAlpha_dot_Alpha_dev = cp.asarray(dAlpha_dot_Alpha_host)
         dAlpha_dot_Alpha_host = None
 
@@ -193,12 +212,16 @@ class GATconvDistr(gat_model.GATconv):
                                                                   dr_tile_2, dAlpha_dot_Alpha_dev)
         # Allreduce dl_tile_1
         dl_tile_1_host = cp.asnumpy(dl_tile_1)
+        time_1 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, dl_tile_1_host, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_1
         dl_tile_1 = cp.asarray(dl_tile_1_host)
         dl_tile_1_host = None
         # Allreduce dr_tile_2
         dr_tile_2_host = cp.asnumpy(dr_tile_2)
+        time_2 = time.perf_counter()
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dr_tile_2_host, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_2
         dr_tile_2 = cp.asarray(dr_tile_2_host)
         dr_tile_2_host = None
 
@@ -226,10 +249,14 @@ class GATconvDistr(gat_model.GATconv):
                     mapping_block[0])], cp.asarray(mapping_block[1]), cp.asarray(mapping_block[2])),
                                                    shape=(A_block.shape[1], A_block.shape[0]))
                 dM_p2_tile_2[k:k + A_block.shape[1], :] += cp.asnumpy(Alpha_T_dev @ dZ_dev)
-                
+
+        time_3 = time.perf_counter()
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dM_p2_tile_2, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_3
         dM_p2_tile_2[0:self.A_shape[1], :] +=  cp.asnumpy(dr_tile_2[0:self.A_shape[1], None]) @ self.a_r[None, :]
+        time_4 = time.perf_counter()
         dM_p2_tile_2_transpose = utils.diagonal_exchange(dM_p2_tile_2, self.cart_comm)
+        comm_time += time.perf_counter() - time_4
 
         # Rename dM_p2_tile_2_transpose to dM_p2_tile_1
         dM_p2_tile_1 = dM_p2_tile_2_transpose
@@ -246,9 +273,13 @@ class GATconvDistr(gat_model.GATconv):
 
         # da_l = M^T @ dl, da_r = M^T @ dr
         da_l = self.ctx.M_tile_1.T @ cp.asnumpy(dl_tile_1)
+        time_5 = time.perf_counter()
         self.bcast_comm.Allreduce(MPI.IN_PLACE, da_l, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_5
         da_r = self.ctx.M_tile_2.T @ cp.asnumpy(dr_tile_2)
+        time_6 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, da_r, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_6
 
         self.parameters.a_l.accumulate_grad(da_l)
         self.parameters.a_r.accumulate_grad(da_r)
@@ -272,13 +303,17 @@ class GATconvDistr(gat_model.GATconv):
         # dW = H^T @ dM
         dW_tile_1 = cp.asnumpy(
             cp.asarray(self.ctx.H_tile_1[0:self.A_shape[0], :].T) @ dM_tile_1_dev[0:self.A_shape[0], :])
+        time_7 = time.perf_counter()
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dW_tile_1, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_7
         self.parameters.W.accumulate_grad(dW_tile_1)
 
         # free memory
         dM_tile_1_dev = None
         self.ctx.H_tile_1 = None
 
+        end_time = time.perf_counter()
+        self.timing_data.extend([end_time - start_time - comm_time, comm_time])
         return dH_tile_1
 
 

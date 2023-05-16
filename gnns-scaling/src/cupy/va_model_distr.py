@@ -17,6 +17,7 @@ import gnn_model
 from gnn_model import Parameter
 import va_model
 
+import time
 
 class VAconvDistr(va_model.VAconv):
     def __init__(self, in_channel: int, out_channel: int, A_shape: List[int], ceil_A_shape: int, tau: int,
@@ -46,6 +47,8 @@ class VAconvDistr(va_model.VAconv):
         self.reduce_comm = reduce_comm
         self.cart_comm = cart_comm
 
+        self.timing_data = []
+
     def forward_gpu(self, A_mapping_blocks: Tuple, H: np.ndarray) -> np.ndarray:
         """Forward pass of the layer on GPU.
         
@@ -59,7 +62,10 @@ class VAconvDistr(va_model.VAconv):
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
         H_tile_1 = H
+        start_time = time.perf_counter()
+        comm_time = 0.0
         H_tile_2 = utils.diagonal_exchange(H, self.cart_comm)
+        comm_time += time.perf_counter() - start_time
 
         # N = H @ W
         N_tile_2 = np.zeros((self.ceil_A_shape, self.out_channel), dtype=H.dtype)
@@ -91,7 +97,9 @@ class VAconvDistr(va_model.VAconv):
             M_data_blocks.append(M_data_i)
             Z_tile_1[i:i + A_block_shape_0, :] = cp.asnumpy(Z_seg_tile_1)
 
+        time_0 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, Z_tile_1, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_0
         out_tile_1 = np.maximum(Z_tile_1, 0)
 
         if self.cache_data:
@@ -101,6 +109,8 @@ class VAconvDistr(va_model.VAconv):
             self.ctx.N_tile_2 = N_tile_2
             self.ctx.Z_tile_1 = Z_tile_1
 
+        end_time = time.perf_counter()
+        self.timing_data.extend([end_time - start_time - comm_time, comm_time])
         return out_tile_1
 
     def backward_gpu(self, A_mapping_blocks: Tuple, grad_out: np.ndarray):
@@ -115,6 +125,8 @@ class VAconvDistr(va_model.VAconv):
         cart_rank = self.cart_comm.Get_rank()
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
+        start_time = time.perf_counter()
+        comm_time = 0.0
 
         # relu
         dZ_tile_1 = grad_out * (self.ctx.Z_tile_1 > 0)
@@ -134,7 +146,9 @@ class VAconvDistr(va_model.VAconv):
                                                      shape=(A_block.shape[1], A_block.shape[0]))
                 dN_seg_tile_2_dev += M_T_block_dev @ cp.asarray(dZ_tile_1[i:i + A_block.shape[0], :])
             dN_tile_2[k:k + A_block_shape_1, :] = cp.asnumpy(dN_seg_tile_2_dev)
+        time_0 = time.perf_counter()
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dN_tile_2, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_0
         M_T_block_dev = None
         dN_seg_tile_2_dev = None
         self.ctx.M_data_blocks = None
@@ -142,7 +156,9 @@ class VAconvDistr(va_model.VAconv):
         # dW = H.T @ dN
         dW = cp.asnumpy(
             cp.asarray(self.ctx.H_tile_2[0:self.A_shape[1], :]).T @ cp.asarray(dN_tile_2[0:self.A_shape[1], :]))
+        time_1 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, dW, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_1
         self.parameters.W.accumulate_grad(dW)
         dW = None
 
@@ -194,7 +210,9 @@ class VAconvDistr(va_model.VAconv):
                     shape=A_block.shape)
                 dH_seg_tile_1_dev += dC_block_dev @ cp.asarray(self.ctx.H_tile_2[k:k + A_block.shape[1], :])
             dH_tile_1[i:i + A_block_shape_0, :] = cp.asnumpy(dH_seg_tile_1_dev)
+        time_2 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, dH_tile_1, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_2
         dC_block_dev = None
         dH_seg_tile_1_dev = None
 
@@ -213,9 +231,13 @@ class VAconvDistr(va_model.VAconv):
                 dH_seg_tile_2_dev += dC_T_block_dev @ cp.asarray(self.ctx.H_tile_1[i:i + A_block.shape[0], :])
             dH_tile_2_part_2[k:k + A_block_shape_1, :] = cp.asnumpy(dH_seg_tile_2_dev)
         # Redistribute dH_tile_2_part_2
+        time_3 = time.perf_counter()
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dH_tile_2_part_2, op=MPI.SUM)
+        comm_time += time.perf_counter() - time_3
         dH_tile_2 = dH_tile_2_part_1 + dH_tile_2_part_2
+        time_4 = time.perf_counter()
         dH_tile_2_transpose = utils.diagonal_exchange(dH_tile_2, self.cart_comm)
+        comm_time += time.perf_counter() - time_4
         
         dH_tile_2 = None
         dH_tile_2_part_2 = None
@@ -227,6 +249,9 @@ class VAconvDistr(va_model.VAconv):
         dH_tile_2_part_1 = None
 
         dH_tile_1 += dH_tile_2_transpose
+
+        end_time = time.perf_counter()
+        self.timing_data.extend([end_time - start_time - comm_time, comm_time])
 
         return dH_tile_1
 

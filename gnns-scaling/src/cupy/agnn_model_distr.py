@@ -18,6 +18,7 @@ import gnn_model
 from gnn_model import Parameter
 import agnn_model
 
+import time
 
 class AGNNconvDistr(agnn_model.AGNNconv):
     def __init__(self, in_channel: int, out_channel: int, A_shape: List[int], ceil_A_shape: int, tau: int,
@@ -47,6 +48,8 @@ class AGNNconvDistr(agnn_model.AGNNconv):
         self.reduce_comm = reduce_comm
         self.cart_comm = cart_comm
 
+        self.timing_data = []
+
     def forward_gpu(self, A_mapping_blocks: Tuple, H: np.ndarray) -> np.ndarray:
         """Forward pass of the layer on GPU.
         
@@ -60,7 +63,9 @@ class AGNNconvDistr(agnn_model.AGNNconv):
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
         H_tile_1 = H
+        time_0 = time.perf_counter()
         H_tile_2 = utils.diagonal_exchange(H, self.cart_comm)
+        time_1 = time.perf_counter()
 
 
         # M = H @ W
@@ -97,7 +102,9 @@ class AGNNconvDistr(agnn_model.AGNNconv):
             Z_tile_1[i:i + A_block.shape[0], :] = cp.asnumpy(Z_seg_tile_1_dev)
             Q_data_blocks.append(Q_data_i)
 
+        time_2 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, Z_tile_1, MPI.SUM)
+        time_3 = time.perf_counter()
 
         Q_block_data_dev = None
         Q_block = None
@@ -113,6 +120,8 @@ class AGNNconvDistr(agnn_model.AGNNconv):
 
         out_tile_1 = np.maximum(Z_tile_1, 0)
 
+        time_4 = time.perf_counter()
+
         if self.cache_data:
             self.ctx.H_tile_1 = H_tile_1
             self.ctx.H_tile_2 = H_tile_2
@@ -122,6 +131,7 @@ class AGNNconvDistr(agnn_model.AGNNconv):
             self.ctx.M_tile_2 = M_tile_2
             self.ctx.Z_tile_1 = Z_tile_1
 
+        self.timing_data.extend([time_2 - time_1 + time_4 - time_3, time_1 - time_0 + time_3 - time_2])
         return out_tile_1
 
     def backward_gpu(self, A_mapping_blocks: Tuple, grad_out: np.ndarray):
@@ -136,6 +146,8 @@ class AGNNconvDistr(agnn_model.AGNNconv):
         cart_rank = self.cart_comm.Get_rank()
         bcast_rank = self.bcast_comm.Get_rank()
         x, y = self.cart_comm.Get_coords(cart_rank)
+        start_time = time.perf_counter()
+        comm_time = 0.0
 
         # relu
         dZ_tile_1 = grad_out * (self.ctx.Z_tile_1 > 0)
@@ -156,7 +168,9 @@ class AGNNconvDistr(agnn_model.AGNNconv):
                 dM_seg_tile_2_dev += Q_T_block_dev @ cp.asarray(dZ_tile_1[i:i + A_block.shape[0], :])
             dM_tile_2[k:k + A_block_shape_1, :] = cp.asnumpy(dM_seg_tile_2_dev)
 
+        time_0 = time.perf_counter()
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dM_tile_2, MPI.SUM)
+        comm_time += time.perf_counter() - time_0
         dM_seg_tile_2_dev = None
         Q_T_block_dev = None
         self.ctx.Q_data_blocks = None
@@ -164,7 +178,9 @@ class AGNNconvDistr(agnn_model.AGNNconv):
         # dW = H^T @ dM
         dW = cp.asnumpy(
             cp.asarray(self.ctx.H_tile_2[0:self.A_shape[1], :]).T @ cp.asarray(dM_tile_2[0:self.A_shape[1], :]))
+        time_1 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, dW, MPI.SUM)
+        comm_time += time.perf_counter() - time_1
         self.parameters.W.accumulate_grad(dW)
 
         if self.is_first_layer:
@@ -245,8 +261,10 @@ class AGNNconvDistr(agnn_model.AGNNconv):
             dH_tile_1[i:i + A_block_shape_0, :] = cp.asnumpy(dH_seg_tile_1_dev)
             dn_tile_1[i:i + A_block_shape_0] = cp.asnumpy(dn_seg_tile_1_dev)
 
+        time_2 = time.perf_counter()
         self.reduce_comm.Allreduce(MPI.IN_PLACE, dH_tile_1, MPI.SUM)
         self.reduce_comm.Allreduce(MPI.IN_PLACE, dn_tile_1, MPI.SUM)
+        comm_time += time.perf_counter() - time_2
 
         dH_seg_tile_1_dev = None
         dn_seg_tile_1_dev = None
@@ -285,12 +303,16 @@ class AGNNconvDistr(agnn_model.AGNNconv):
             dH_tile_2_part_2[k:k + A_block_shape_1, :] = cp.asnumpy(dH_seg_tile_2_dev)
             dn_tile_2[k:k + A_block_shape_1] = cp.asnumpy(dn_seg_tile_2_dev)
 
+        time_3 = time.perf_counter()
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dH_tile_2_part_2, MPI.SUM)
         self.bcast_comm.Allreduce(MPI.IN_PLACE, dn_tile_2, MPI.SUM)
+        comm_time += time.perf_counter() - time_3
         # dH += dM @ W.T + dC.T @ H
         dH_tile_2 = dH_tile_2_part_1 + dH_tile_2_part_2
+        time_4 = time.perf_counter()
         dH_tile_2_transpose = utils.diagonal_exchange(dH_tile_2, self.cart_comm)
         dn_tile_2_transpose = utils.diagonal_exchange(dn_tile_2, self.cart_comm)
+        comm_time += time.perf_counter() - time_4
         
         dH_tile_2_part_2 = None
         dn_tile_2 = None
@@ -314,6 +336,9 @@ class AGNNconvDistr(agnn_model.AGNNconv):
 
         self.ctx.H_tile_1 = None
         self.ctx.n_tile_1 = None
+
+        end_time = time.perf_counter()
+        self.timing_data.extend([end_time - start_time - comm_time, comm_time])
 
         return dH_tile_1
 
