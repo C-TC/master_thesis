@@ -1,0 +1,17 @@
+Experiment ID,Job ID,Model,Task,Setting,#Repetitions,#Nodes,Dataset,Datatyp,Scale,#Vertices,Density,#Edges,#Layers,#Features,Elapsed,Node-Hours,Done,Time mean [ms],Time std [ms]
+1,45848932,VA,Inference,Distributed,?,16,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:09:51,2:37:36,x,17464,1546
+2,45848933,VA,Training,Distributed,?,16,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:10:34,2:49:04,!,OOM,OOM
+3,45848934,GAT,Inference,Distributed,?,16,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:10:11,2:42:56,x,25482,0
+4,45848935,GAT,Training,Distributed,?,16,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:12:54,3:26:24,x,77599,0
+5,45848936,VA,Inference,Distributed,?,64,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:09:57,10:36:48,x,9867,972
+6,45848937,VA,Training,Distributed,?,64,edge_index_padded_12,?,n/a,?,n/a,?,2,16,1:30:09,96:09:36,!,OOM,OOM
+7,45848938,GAT,Inference,Distributed,?,64,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:10:46,11:29:04,x,11406,0
+8,45848939,GAT,Training,Distributed,?,64,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:12:10,12:58:40,x,33479,0
+9,45848940,VA,Inference,Distributed,?,256,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:11:46,50:12:16,x,7094,3151
+10,45848941,VA,Training,Distributed,?,256,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:12:42,54:11:12,x,34394,5736
+11,45848942,GAT,Inference,Distributed,?,256,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:11:38,49:38:08,x,6089,0
+12,45848943,GAT,Training,Distributed,?,256,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:10:44,45:47:44,x,15207,0
+13,45848944,VA,Inference,Distributed,?,1024,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:14:01,239:13:04,x,9972,7671
+14,45848945,VA,Training,Distributed,?,1024,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:13:57,238:04:48,x,21348,9630
+15,45848947,GAT,Inference,Distributed,?,1024,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:13:15,226:08:00,x,3180,0
+16,45848950,GAT,Training,Distributed,?,1024,edge_index_padded_12,?,n/a,?,n/a,?,2,16,0:13:32,230:58:08,x,7461,0

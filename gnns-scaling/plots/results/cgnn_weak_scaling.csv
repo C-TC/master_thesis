@@ -1,0 +1,16 @@
+Experiment ID,Job ID,Model,Task,Setting,#Nodes,Dataset,Datatyp,Scale,#Vertices,Density,#Edges,#Layers,#Features,Elapsed,Node-Hours,Done,Time mean [ms],Time std [ms]
+1,45758588,CGNN,Inference,Single Node,1,Kronecker,float32,17,131072,0.01%,1717987,3,128,0:00:35,0:00:35,x,454,2754
+2,45758673,CGNN,Inference,Single Node,1,Kronecker,float32,17,131072,0.1%,17179869,3,128,0:00:44,0:00:44,x,883,337
+3,45758678,CGNN,Inference,Single Node,1,Kronecker,float32,17,131072,1%,171798692,3,128,0,0:00:00,x,2527,713
+4,45765242,CGNN,Inference,Distributed,4,Kronecker,float32,18,262144,0.01%,6871948,3,128,0:00:30,0:02:00,x,890,699
+5,45765287,CGNN,Inference,Distributed,4,Kronecker,float32,18,262144,0.1%,68719477,3,128,0:00:49,0:03:16,x,1577,332
+6,45765289,CGNN,Inference,Distributed,4,Kronecker,float32,18,262144,1%,687194767,3,128,0:03:48,0:15:12,x,4181,387
+7,45765374,CGNN,Inference,Distributed,16,Kronecker,float32,19,524288,0.01%,27487791,3,128,0:00:35,0:09:20,x,1032,440
+8,45765386,CGNN,Inference,Distributed,16,Kronecker,float32,19,524288,0.1%,274877907,3,128,0:00:59,0:15:44,x,1944,368
+9,45765391,CGNN,Inference,Distributed,16,Kronecker,float32,19,524288,1%,2748779069,3,128,0:04:08,1:06:08,x,4831,562
+10,45765531,CGNN,Inference,Distributed,64,Kronecker,float32,20,1048576,0.01%,109951163,3,128,0:00:51,0:54:24,x,1508,911
+11,45765532,CGNN,Inference,Distributed,64,Kronecker,float32,20,1048576,0.1%,1099511628,3,128,0:01:16,1:21:04,x,2403,674
+12,45765533,CGNN,Inference,Distributed,64,Kronecker,float32,20,1048576,1%,10995116278,3,128,0:04:51,5:10:24,x,5441,975
+13,45765575,CGNN,Inference,Distributed,256,Kronecker,float32,21,2097152,0.01%,439804651,3,128,0:02:00,8:32:00,x,2164,573
+14,45765576,CGNN,Inference,Distributed,256,Kronecker,float32,21,2097152,0.1%,4398046511,3,128,0:02:29,10:35:44,x,3283,685
+15,45765577,CGNN,Inference,Distributed,256,Kronecker,float32,21,2097152,1%,43980465111,3,128,0:06:37,28:13:52,x,7034,734

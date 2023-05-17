@@ -1,0 +1,97 @@
+Experiment ID,Job ID,Model,Task,Setting,#Repetitions,#Nodes,Dataset,Datatyp,Scale,#Vertices,Density,#Edges,#Layers,#Features,Elapsed,Node-Hours,Done,Time mean [ms],Time std [ms]
+,,GAT,Training,Single Node,1,1,Kronecker,float32,17,131072,1%,171798692,3,16,,,,8047,2
+,,GAT,Training,Single Node,1,1,Kronecker,float32,18,262144,1%,687194767,3,16,,,OOM,,
+,,GAT,Training,Single Node,1,1,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,13500,5
+,,GAT,Training,Single Node,1,1,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,52782,9
+,,GAT,Training,Distributed,1,4,Kronecker,float32,17,131072,1%,171798692,3,16,,,,1823,6
+,,GAT,Training,Distributed,1,4,Kronecker,float32,18,262144,1%,687194767,3,16,,,,7679,3
+,,GAT,Training,Distributed,1,4,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,4039,6
+,,GAT,Training,Distributed,1,4,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,13924,4
+,,GAT,Training,Distributed,1,16,Kronecker,float32,17,131072,1%,171798692,3,16,,,,413,1
+,,GAT,Training,Distributed,1,16,Kronecker,float32,18,262144,1%,687194767,3,16,,,,1775,3
+,,GAT,Training,Distributed,1,16,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,994,1
+,,GAT,Training,Distributed,1,16,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,4010,2
+,,GAT,Training,Distributed,1,64,Kronecker,float32,17,131072,1%,171798692,3,16,,,,124,17
+,,GAT,Training,Distributed,1,64,Kronecker,float32,18,262144,1%,687194767,3,16,,,,399,1
+,,GAT,Training,Distributed,1,64,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,423,1
+,,GAT,Training,Distributed,1,64,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,1016,2
+,,GAT,Training,Distributed,1,256,Kronecker,float32,17,131072,1%,171798692,3,16,,,,61,7
+,,GAT,Training,Distributed,1,256,Kronecker,float32,18,262144,1%,687194767,3,16,,,,121,4
+,,GAT,Training,Distributed,1,256,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,235,4
+,,GAT,Training,Distributed,1,256,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,467,9
+1,45827494,GAT,Training,Single Node,1,1,Kronecker,float32,17,131072,1%,171798692,3,128,,,,19101,
+2,45827602,GAT,Training,Single Node,1,1,Kronecker,float32,18,262144,1%,687194767,3,128,,,OOM,,
+3,45827790,GAT,Training,Single Node,1,1,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,45147,
+4,45827827,GAT,Training,Single Node,1,1,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,151376,
+5,45827527,GAT,Training,Distributed,1,4,Kronecker,float32,17,131072,1%,171798692,3,128,,,,4811,
+6,45827624,GAT,Training,Distributed,1,4,Kronecker,float32,18,262144,1%,687194767,3,128,,,,18600,
+7,45827796,GAT,Training,Distributed,1,4,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,17323,
+8,45827861,GAT,Training,Distributed,1,4,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,48572,
+9,45827550,GAT,Training,Distributed,1,16,Kronecker,float32,17,131072,1%,171798692,3,128,,,,1134,
+10,45827636,GAT,Training,Distributed,1,16,Kronecker,float32,18,262144,1%,687194767,3,128,,,,4730,
+11,45827798,GAT,Training,Distributed,1,16,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,6925,
+12,45827893,GAT,Training,Distributed,1,16,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,17413,
+13,45827554,GAT,Training,Distributed,1,64,Kronecker,float32,17,131072,1%,171798692,3,128,,,,437,
+14,45827640,GAT,Training,Distributed,1,64,Kronecker,float32,18,262144,1%,687194767,3,128,,,,1175,
+15,45827800,GAT,Training,Distributed,1,64,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,3133,
+16,45827909,GAT,Training,Distributed,1,64,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,6951,
+17,45827566,GAT,Training,Distributed,1,256,Kronecker,float32,17,131072,1%,171798692,3,128,,,,234,
+18,45827659,GAT,Training,Distributed,1,256,Kronecker,float32,18,262144,1%,687194767,3,128,,,,471,
+19,45827804,GAT,Training,Distributed,1,256,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,1707,
+20,45827916,GAT,Training,Distributed,1,256,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,3449,
+1,45830475,GAT,Training,Single Node,1,1,Kronecker,float32,17,131072,1%,171798692,3,16,,,,7935,
+2,45830491,GAT,Training,Single Node,1,1,Kronecker,float32,18,262144,1%,687194767,3,16,,,OOM,,
+3,45830509,GAT,Training,Single Node,1,1,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,13241,
+4,45830524,GAT,Training,Single Node,1,1,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,51938,
+5,45830477,GAT,Training,Single Node,1,1,Kronecker,float32,17,131072,1%,171798692,3,128,,,,18806,
+6,45830492,GAT,Training,Single Node,1,1,Kronecker,float32,18,262144,1%,687194767,3,128,,,OOM,,
+7,45830517,GAT,Training,Single Node,1,1,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,43381,
+8,45830525,GAT,Training,Single Node,1,1,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,148411,
+,45834458,VA,Training,Single Node,1,1,Kronecker,float32,17,131072,1%,171798692,3,16,,,,25623,
+,45841943,VA,Training,Single Node,1,1,Kronecker,float32,18,262144,1%,687194767,3,16,,,OOM,,
+,45834536,VA,Training,Single Node,1,1,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,46883,
+,45837555,VA,Training,Single Node,1,1,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,CUDA OOM,,
+,45834472,VA,Training,Distributed,1,4,Kronecker,float32,17,131072,1%,171798692,3,16,,,,9756,
+,45841950,VA,Training,Distributed,1,4,Kronecker,float32,18,262144,1%,687194767,3,16,,,,22706,
+,45834553,VA,Training,Distributed,1,4,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,14322,
+,45834614,VA,Training,Distributed,1,4,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,46726,
+,45834474,VA,Training,Distributed,1,16,Kronecker,float32,17,131072,1%,171798692,3,16,,,,4561,
+,45841960,VA,Training,Distributed,1,16,Kronecker,float32,18,262144,1%,687194767,3,16,,,,6215,
+,45834562,VA,Training,Distributed,1,16,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,4486,
+,45834625,VA,Training,Distributed,1,16,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,13649,
+,45834475,VA,Training,Distributed,1,64,Kronecker,float32,17,131072,1%,171798692,3,16,,,,2076,
+,45841964,VA,Training,Distributed,1,64,Kronecker,float32,18,262144,1%,687194767,3,16,,,,2913,
+,45834569,VA,Training,Distributed,1,64,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,1931,
+,45834631,VA,Training,Distributed,1,64,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,5232,
+,45834477,VA,Training,Distributed,1,256,Kronecker,float32,17,131072,1%,171798692,3,16,,,,3586,
+,45841983,VA,Training,Distributed,1,256,Kronecker,float32,18,262144,1%,687194767,3,16,,,,5650,
+,45834581,VA,Training,Distributed,1,256,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,3484,
+,45834637,VA,Training,Distributed,1,256,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,4251,
+,45834694,VA,Training,Single Node,1,1,Kronecker,float32,17,131072,1%,171798692,3,128,,,,486895,
+,45842052,VA,Training,Single Node,1,1,Kronecker,float32,18,262144,1%,687194767,3,128,,,OOM,,
+,45834784,VA,Training,Single Node,1,1,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,747788,
+,45837568,VA,Training,Single Node,1,1,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,CUDA OOM,,
+,45834707,VA,Training,Distributed,1,4,Kronecker,float32,17,131072,1%,171798692,3,128,,,,88250,
+,45842062,VA,Training,Distributed,1,4,Kronecker,float32,18,262144,1%,687194767,3,128,,,,456897,
+,45834800,VA,Training,Distributed,1,4,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,176031,
+,45837615,VA,Training,Distributed,1,4,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,768338,
+,45834713,VA,Training,Distributed,1,16,Kronecker,float32,17,131072,1%,171798692,3,128,,,,14146,
+,45842823,VA,Training,Distributed,1,16,Kronecker,float32,18,262144,1%,687194767,3,128,,,,83319,
+,45834821,VA,Training,Distributed,1,16,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,39068,
+,45834852,VA,Training,Distributed,1,16,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,176387,
+,45834722,VA,Training,Distributed,1,64,Kronecker,float32,17,131072,1%,171798692,3,128,,,,4449,
+,45842831,VA,Training,Distributed,1,64,Kronecker,float32,18,262144,1%,687194767,3,128,,,,14421,
+,45834837,VA,Training,Distributed,1,64,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,11319,
+,45834855,VA,Training,Distributed,1,64,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,39777,
+,45834734,VA,Training,Distributed,1,256,Kronecker,float32,17,131072,1%,171798692,3,128,,,,3837,
+,45842833,VA,Training,Distributed,1,256,Kronecker,float32,18,262144,1%,687194767,3,128,,,Pending,,
+,45834845,VA,Training,Distributed,1,256,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,6774,
+,45834862,VA,Training,Distributed,1,256,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,12808,
+1,45845471,VA,Training,Single Node,1,1,Kronecker,float32,17,131072,1%,171798692,3,16,,,,22108,
+2,45845481,VA,Training,Single Node,1,1,Kronecker,float32,18,262144,1%,687194767,3,16,,,OOM,,
+3,45845494,VA,Training,Single Node,1,1,Kronecker,float32,20,1048576,0.01%,109951163,3,16,,,,40811,
+4,45845985,VA,Training,Single Node,1,1,Kronecker,float32,21,2097152,0.01%,439804651,3,16,,,,187795,
+5,45845510,VA,Training,Single Node,1,1,Kronecker,float32,17,131072,1%,171798692,3,128,,,,431028,
+6,45845511,VA,Training,Single Node,1,1,Kronecker,float32,18,262144,1%,687194767,3,128,,,OOM,,
+7,45845512,VA,Training,Single Node,1,1,Kronecker,float32,20,1048576,0.01%,109951163,3,128,,,,427156,
+8,45845973,VA,Training,Single Node,1,1,Kronecker,float32,21,2097152,0.01%,439804651,3,128,,,,2024953,
