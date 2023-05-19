@@ -1,11 +1,21 @@
 #!/bin/bash
+#SBATCH --job-name="cscmm"
+#SBATCH --account="g34"
+#SBATCH --time=03:00:00
+#SBATCH --nodes=1
+#SBATCH --nodelist=ault24
+#SBATCH --partition=intelv100
+
+module load cuda
+conda activate thesis
+
 TUPLES=(
     "131072 1717987"
     "131072 17179869"
+    "131072 171798692"
     "262144 6871948"
     "262144 68719477"
-    "524288 27487791"
-    "524288 274877907"
+    "262144 687194767"
 )
 
 MODELS=("VA" "GAT" "AGNN")
