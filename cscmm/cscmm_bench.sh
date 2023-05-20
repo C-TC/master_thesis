@@ -7,6 +7,7 @@
 #SBATCH --partition=intelv100
 
 module load cuda
+conda init bash
 conda activate thesis
 
 TUPLES=(
