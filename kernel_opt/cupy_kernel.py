@@ -1,6 +1,10 @@
 import cupy as cp
 import cupyx as cpx
+import numpy as np
 from scipy import sparse
+import utils
+from timeit import repeat
+from cupyx.profiler import benchmark
 
 
 @cpx.jit.rawkernel()
@@ -30,9 +34,8 @@ def VA_f_0(out_data, indices, indptr, H_tile_1, H_tile_2):
         C(i, j) = l(i) + r(j)
         D = A * C
         E = leakyrelu(D)
-        row_max[i] = max(E[i, :])
 """
-GAT_f_0 = cp.RawKernel(
+forward_lr_E_rowmax_kernel = cp.RawKernel(
     r'''
 __device__ __forceinline__ float atomicMaxFloat(float* addr, float value) {
     float old;
@@ -75,8 +78,7 @@ void gat_forward_lr_E_rowmax(float* out_data, float* out_row_max, int* indices, 
     }
 }
 
-''', 'GAT_f_0')
-
+''', 'gat_forward_lr_E_rowmax')
 
 @cpx.jit.rawkernel()
 def GAT_f_1(out_data, row_sum, E_data, indices, indptr, row_max):
@@ -216,3 +218,14 @@ def AGNN_b_0(dC_out_data, dD_out_data, indices, indptr, dZ, M, H_tile_1,
 
             dC_out_data[j] = dQ / D
             dD_out_data[j] = -C * dQ / (D * D)
+
+KERNELS_CUPY = {
+    'VA_f_0': VA_f_0,
+    'GAT_f_0': forward_lr_E_rowmax_kernel,
+    'GAT_f_1': GAT_f_1,
+    'GAT_f_2': GAT_f_2,
+    'GAT_b_0': GAT_b_0,
+    'GAT_b_1': GAT_b_1,
+    'AGNN_f_0': AGNN_f_0,
+    'AGNN_b_0': AGNN_b_0
+}

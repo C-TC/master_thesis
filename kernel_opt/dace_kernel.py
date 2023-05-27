@@ -232,3 +232,14 @@ DACE_GPU_STRIDED = {
     "AGNN_f_0": GPU_strided_no_atomic,
     "AGNN_b_0": GPU_strided_no_atomic,
 }
+
+KERNELS_DACE = {
+    "VA_f_0": VA_f_0.to_sdfg(simplify=True),
+    "GAT_f_0": GAT_f_0.to_sdfg(simplify=True),
+    "GAT_f_1": GAT_f_1.to_sdfg(simplify=True),
+    "GAT_f_2": GAT_f_2.to_sdfg(simplify=True),
+    "GAT_b_0": GAT_b_0.to_sdfg(simplify=True),
+    "GAT_b_1": GAT_b_1.to_sdfg(simplify=True),
+    "AGNN_f_0": AGNN_f_0.to_sdfg(simplify=True),
+    "AGNN_b_0": AGNN_b_0.to_sdfg(simplify=True),
+}

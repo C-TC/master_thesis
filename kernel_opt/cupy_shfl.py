@@ -147,3 +147,10 @@ def AGNN_b_0(dC_out_data, dD_out_data, indices, indptr, dZ, M, H_tile_1,
             if twid == 0:
                 dC_out_data[j] = dQ / D
                 dD_out_data[j] = -C * dQ / (D * D)
+
+KERNELS_CUPY_SHFL = {
+    'VA_f_0': VA_f_0,
+    'GAT_b_0': GAT_b_0,
+    'AGNN_f_0': AGNN_f_0,
+    'AGNN_b_0': AGNN_b_0
+}
