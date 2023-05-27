@@ -6,6 +6,9 @@ import scipy as sp
 import utils
 from copy import deepcopy
 from timeit import repeat
+from dace.config import Config
+Config.set('cache', value='unique')
+
 from cupy_kernel import KERNELS_CUPY, forward_lr_E_rowmax_kernel as GAT_f_0_special
 from dace_kernel import KERNELS_DACE, DACE_GPU_NORMAL, DACE_GPU_STRIDED
 from cupy_shfl import KERNELS_CUPY_SHFL
