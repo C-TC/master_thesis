@@ -76,7 +76,7 @@ def lr_E_rowmax_dace(out_data: dace.float32[nnz], out_row_max: dace.float32[M], 
             tmp = l[rowNo] + r[colNo]
             tmp = np.maximum(tmp, 0.2 * tmp)
             out_data[j] = tmp
-            out_row_max[rowNo] = max(out_row_max[rowNo], tmp)
+            out_row_max[rowNo] = np.maximum(out_row_max[rowNo], tmp)
 
 
 @cpx.jit.rawkernel()
@@ -107,7 +107,6 @@ def softmax_1_dace(out_data: dace.float32[nnz], row_sum: dace.float32[M], E_data
     for i in dace.map[0:M]:
         for j in dace.map[indptr[i]: indptr[i+1]]:
             rowNo = i
-            colNo = indices[j]
             tmp = np.exp(E_data[j] - row_max[rowNo])
             out_data[j] = tmp
             row_sum[rowNo] += tmp
@@ -128,7 +127,6 @@ def gat_forward_softmax_2(alpha_data, row_sum, indices, indptr):
     for i in range(bid, (len(indptr) - 1), num_blocks):
         for j in range(indptr[i] + tid, indptr[i + 1], num_threads):
             rowNo = i
-            colNo = indices[j]
             alpha_data[j] /= row_sum[rowNo]
 
 @dace.program
@@ -136,7 +134,6 @@ def softmax_2_dace(alpha_data: dace.float32[nnz], row_sum: dace.float32[M], indi
     for i in dace.map[0:M]:
         for j in dace.map[indptr[i]: indptr[i+1]]:
             rowNo = i
-            colNo = indices[j]
             alpha_data[j] /= row_sum[rowNo]
 
 

@@ -178,6 +178,3 @@ def Z_Q_CD_dace(dC_out_data: dace.float32[nnz], dD_out_data: dace.float32[nnz], 
             
             dC_out_data[j] = dQ / D
             dD_out_data[j] = -C * dQ / (D * D)
-
-sdfg = Z_Q_CD_dace.to_sdfg(simplify=True)
-sdfg.view()
