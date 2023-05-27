@@ -164,16 +164,16 @@ def Z_Q_CD_dace(dC_out_data: dace.float32[nnz], dD_out_data: dace.float32[nnz], 
     dC_out_data[:] = 0.0
     dD_out_data[:] = 0.0
     
-    for i in dace.map[M]:
+    for i in dace.map[0:M]:
         for j in dace.map[indptr[i]: indptr[i+1]]:
             rowNo = i
             colNo = indices[j]
             dQ = 0.0
             C = 0.0
             D = n_tile_1[rowNo] * n_tile_2[colNo]
-            for k in dace.map[K]:
+            for k in dace.map[0:K]:
                 dQ += dZ[rowNo, k] * M_mat[colNo, k]
-            for k in dace.map[K]:
+            for k in dace.map[0:K]:
                 C += H_tile_1[rowNo, k] * H_tile_2[colNo, k]
             
             dC_out_data[j] = dQ / D

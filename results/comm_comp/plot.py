@@ -4,7 +4,7 @@ import numpy as np
 
 
 # Read the CSV file into a DataFrame
-data = pd.read_csv('results.txt', sep='\s+', header=None)
+data = pd.read_csv('results.csv', sep='\s+', header=None)
 data.columns = ['method', 'nodes', 'vertices', 'edges', 'features', 'forcomp', 'forcomm', 'backcomp', 'backcomm']
 data['forward'] = data['forcomp'] + data['forcomm']
 data['backward'] = data['backcomp'] + data['backcomm']
@@ -48,8 +48,8 @@ for vertices,edges in graphs:
                 ax.set_title("Forward Pass")    
             else:
                 ax.set_title("Backward Pass")
-            ax.grid(which = "major")
-            ax.grid(which = "minor", linewidth = 0.2)
+            ax.grid(which = "major", axis = "y", linestyle='-', linewidth=0.2)
+            # ax.grid(which = "minor", linewidth = 0.2)
             # Set x tick positions and labels
             ax.set_xticks(x + 1.1)
             ax.set_xticklabels(sample['nodes'].unique())
