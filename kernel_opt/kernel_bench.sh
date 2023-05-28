@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name="kernel_bench"
 #SBATCH --account="g34"
-#SBATCH --time=06:00:00
+#SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --nodelist=ault24
 #SBATCH --partition=intelv100
 
-module load cuda
+module load cuda/11.8.0
 conda init bash
 conda activate thesis
 
