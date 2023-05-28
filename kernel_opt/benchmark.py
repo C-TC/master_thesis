@@ -149,7 +149,7 @@ cp.cuda.get_current_stream().synchronize()
                                 **globals()
                             })
         gpu_runtimes = gpu_runtimes[num_warmup:]
-        write_to_file(kernel, 'cupy', M, edges, gpu_runtimes, dataset, rng)
+        write_to_file(kernel, 'cupy', M, edges, features, gpu_runtimes, dataset, rng)
     
     if kernel in KERNELS_CUPY_SHFL:
 
@@ -170,7 +170,7 @@ cp.cuda.get_current_stream().synchronize()
                                 **globals()
                             })
         gpu_runtimes = gpu_runtimes[num_warmup:]
-        write_to_file(kernel, 'cupy_shfl', M, edges, gpu_runtimes, dataset, rng)
+        write_to_file(kernel, 'cupy_shfl', M, edges, features, gpu_runtimes, dataset, rng)
     
     if kernel in KERNELS_DACE:
         # normal version
@@ -186,7 +186,7 @@ for output in outputs:
 
         gpu_runtimes = repeat(gpu_stmt, setup=gpu_setup, repeat=num_warmup + num_repeats, number=1, globals=locals())
         gpu_runtimes = gpu_runtimes[num_warmup:]
-        write_to_file(kernel, 'dace_normal', M, edges, gpu_runtimes, dataset, rng)
+        write_to_file(kernel, 'dace_normal', M, edges, features, gpu_runtimes, dataset, rng)
     
     if kernel in KERNELS_DACE:
         # grid strided
@@ -202,16 +202,16 @@ for output in outputs:
 
         gpu_runtimes = repeat(gpu_stmt, setup=gpu_setup, repeat=num_warmup + num_repeats, number=1, globals=locals())
         gpu_runtimes = gpu_runtimes[num_warmup:]
-        write_to_file(kernel, 'dace_strided', M, edges, gpu_runtimes, dataset, rng)
+        write_to_file(kernel, 'dace_strided', M, edges, features, gpu_runtimes, dataset, rng)
 
 
-def write_to_file(kernel, method, vertices, edges, gpu_runtimes, dataset, rng, filename='results.csv'):
+def write_to_file(kernel, method, vertices, edges, features, gpu_runtimes, dataset, rng, filename='results.csv'):
     median = np.median(gpu_runtimes)
     std = np.std(gpu_runtimes)
     # compute the 95% confidence interval by bootstrapping
     lower, upper = bootstrap_median(gpu_runtimes)
     with open(filename, 'a') as f:
-        f.write(f'{kernel},{method},{vertices},{edges},{dataset},{median},{std},{lower},{upper}\n')
+        f.write(f'{kernel},{method},{vertices},{edges},{features},{dataset},{median},{std},{lower},{upper}\n')
 
 
 def bootstrap_median(data, n_bootstrap_samples=1000, alpha=0.05):
